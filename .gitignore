@@ -1,0 +1,15 @@
+node_modules/
+
+.pycache/
+__pycache__/
+*.pyc
+
+.DS_Store
+
+.agenttown/
+
+dist/
+build/
+.cache/
+
+.claude/settings.local.json
