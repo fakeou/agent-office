@@ -307,12 +307,12 @@ function createPtyManager({ store }) {
       }
 
       const runtime = sessions.get(session.sessionId);
-      if (runtime && runtime.transport === "tmux") {
-        if (!sessionExists(runtime.tmuxSession)) {
-          markRuntimeExit(session.sessionId, { exitCode: 0, signal: 0, reason: "tmux_session_missing" });
-          continue;
-        }
+      if (session.transport === "tmux" && session.meta && session.meta.tmuxSession && !sessionExists(session.meta.tmuxSession)) {
+        markRuntimeExit(session.sessionId, { exitCode: 0, signal: 0, reason: "tmux_session_missing" });
+        continue;
+      }
 
+      if (runtime && runtime.transport === "tmux") {
         const pane = describePane(runtime.tmuxSession);
         if (pane) {
           if (pane.pid && pane.pid !== session.pid) {
