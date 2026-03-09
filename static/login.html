@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentTown — Login</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/login.css" />
+  </head>
+  <body>
+    <div class="login-shell">
+      <div class="login-card">
+        <p class="eyebrow">AgentTown</p>
+        <h1>Remote Access</h1>
+        <p class="login-description">Enter the access token printed when the server started, or found at <code>~/.agenttown/token</code>.</p>
+
+        <form id="login-form" class="stacked-form">
+          <label for="token-input">Access Token</label>
+          <input
+            id="token-input"
+            type="password"
+            placeholder="Paste your token here"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+          <button class="primary-button" type="submit" id="login-button">Login</button>
+        </form>
+
+        <div id="login-error" class="login-error" hidden></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const form = document.getElementById("login-form");
+        const input = document.getElementById("token-input");
+        const button = document.getElementById("login-button");
+        const errorBox = document.getElementById("login-error");
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          errorBox.hidden = true;
+          button.disabled = true;
+          button.textContent = "Verifying...";
+
+          try {
+            const response = await fetch("/api/auth/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: input.value.trim() })
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+              window.location.href = "/";
+              return;
+            }
+
+            if (data.error === "locked") {
+              showError("Account locked. Try again in " + Math.ceil(data.remainingSeconds / 60) + " minute(s).");
+            } else if (data.error === "rate_limited") {
+              showError("Too many attempts. Wait a minute before trying again.");
+            } else {
+              const remaining = data.remaining != null ? data.remaining : "?";
+              showError("Invalid token. " + remaining + " attempt(s) remaining this minute.");
+            }
+          } catch {
+            showError("Connection failed. Is the server running?");
+          } finally {
+            button.disabled = false;
+            button.textContent = "Login";
+          }
+        });
+
+        function showError(msg) {
+          errorBox.textContent = msg;
+          errorBox.hidden = false;
+        }
+      })();
+    </script>
+  </body>
+</html>

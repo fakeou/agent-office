@@ -37,19 +37,63 @@ Current scope:
 Out of scope for this phase:
 
 - database persistence
-- team collaboration or auth
 - SSH relay / multi-machine orchestration
 - desktop packaging
 - provider-specific protocols beyond Claude hooks and Codex session logs
 
 ## Architecture
 
+### Authentication Model (Phase 2)
+
+AgentTown uses a token-based authentication system designed for remote access via FRP tunnels.
+
+**Security model:**
+
+- Token storage: `~/.agenttown/token` file, plaintext, file permission `600`
+- Transport protection: relies on HTTPS (user configures via FRP `https2http` plugin or nginx reverse proxy)
+- Auth flow: client submits token via `POST /api/auth/login`, server sets `HttpOnly` + `SameSite=Strict` cookie (7-day TTL)
+- LAN bypass: by default, requests from `127.*`, `192.168.*`, `10.*`, `172.16-31.*` skip token verification (Phase 1 backward compatibility)
+- Force auth: `--auth` flag makes all requests require token, including LAN
+- Brute-force protection: per-IP rate limit (5 attempts/minute), lockout after 10 consecutive failures (15-minute cooldown)
+- WebSocket protection: upgrade requests check the same cookie; HTTPS tunnels automatically upgrade to `wss://`
+- Token rotation: `agenttown token reset` regenerates the token and overwrites the file
+
+**FRP configuration guide:**
+
+AgentTown does not manage FRP tunnels. The operator is responsible for running `frpc` with the `https2http` plugin (or equivalent) that terminates TLS and forwards plaintext HTTP to the local AgentTown port. Example `frpc.toml` snippet:
+
+```toml
+[[proxies]]
+name = "agenttown"
+type = "https"
+customDomains = ["agenttown.example.com"]
+
+[proxies.plugin]
+type = "https2http"
+localAddr = "127.0.0.1:8765"
+crtPath = "/path/to/cert.pem"
+keyPath = "/path/to/key.pem"
+```
+
+Alternative: use nginx or Caddy as a local reverse proxy with HTTPS, then tunnel HTTP through FRP to the reverse proxy.
+
+**Auth middleware flow:**
+
+1. Request arrives at Express middleware
+2. Check if path is whitelisted (`/api/auth/*`, `/login.html`, static assets) → pass through
+3. Check if LAN request and `--auth` not set → pass through (Phase 1 compat)
+4. Check `agenttown_token` cookie → verify with timing-safe comparison → pass or 401
+5. API routes return `401 JSON`; page routes redirect to `/login.html`
+6. WebSocket upgrade follows the same LAN/cookie logic; rejected upgrades get `401` on the raw socket
+
 ### Current Module Layout
 
 - `server.js`
-  CLI entrypoint for `start`, `codex`, `claude`, `serve`, `run`, `claude-hook`, and `print-claude-hooks`, plus startup repair for `node-pty` spawn-helper permissions on macOS and local `tmux attach` support for tmux-backed sessions.
+  CLI entrypoint for `start`, `codex`, `claude`, `serve`, `run`, `claude-hook`, `print-claude-hooks`, and `token` subcommands, plus startup repair for `node-pty` spawn-helper permissions on macOS, local `tmux attach` support, and `--auth` / `--auth-token` flags.
+- `src/auth.js`
+  Token generation, file persistence, timing-safe verification, LAN IP detection, per-IP login rate limiting, and cookie helpers.
 - `src/server.js`
-  Express app, REST API, static serving, and WebSocket upgrade handling.
+  Express app, REST API, static serving, auth middleware, login/logout/check endpoints, and WebSocket upgrade handling with token verification.
 - `src/runtime/pty-manager.js`
   Managed PTY lifecycle, tmux-backed session lifecycle, terminal WebSocket binding, shared-session attach flow, and launch registration only after transport startup succeeds.
 - `src/runtime/ensure-node-pty.js`
@@ -78,8 +122,12 @@ Out of scope for this phase:
   Shared display-state constants and workshop zone mapping.
 - `static/index.html`
   Plain HTML shell with `@xterm/xterm` CDN loading.
+- `static/login.html`
+  Token login page for remote access authentication.
+- `static/login.css`
+  Login page styling.
 - `static/app.js`
-  Workshop view, hash routing, WebSocket clients, and terminal view.
+  Workshop view, hash routing, WebSocket clients with reconnection and auth-awareness, connection status indicator, and terminal view.
 - `static/styles.css`
   Workshop and terminal styling.
 
@@ -104,7 +152,7 @@ Primary operator flow for the first phase:
 4. Web clients on the same LAN open the workshop and attach to the same worker session on demand.
 5. The local machine can later recover that tmux session with `agenttown attach <sessionId>` and continue operating it in a native terminal.
 6. `agenttown cleanup`
-   Removes only AgentTown-managed tmux sessions that use the `agenttown_` session-name prefix.
+   Removes only AgentTown-managed tmux sessions that use the `agenttown_` session-name prefix, and the daemon reconciles those missing tmux workers out of the live workshop.
 
 REST remains in place for low-frequency operations:
 
@@ -112,6 +160,17 @@ REST remains in place for low-frequency operations:
 - `GET /api/sessions/:sessionId`
 - `POST /api/sessions/launch`
 - `POST /api/providers/claude/hook`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/check`
+
+### WebSocket Reconnection (Phase 2)
+
+Both WebSocket channels now implement automatic reconnection with exponential backoff:
+
+- **Events socket** (`/ws/events`): reconnects on close with delays 1s → 2s → 4s → ... → 30s max. On reconnect, the client re-fetches `/api/sessions` to sync full state. The workshop header shows a connection status indicator (online / reconnecting... / connecting...).
+- **Terminal socket** (`/ws/terminal/:sessionId`): reconnects with the same backoff strategy. The terminal displays a "[connection lost, reconnecting...]" message. After reconnect, some terminal output may be lost (acceptable since tmux sessions persist server-side).
+- Both channels detect 401 close codes and redirect to the login page instead of reconnecting.
 
 ## State Model
 
@@ -227,6 +286,21 @@ Managed tmux launches now `exec` the target agent command inside the pane so wor
 - [x] Add local attach command for web-launched tmux workers
 - [x] Add tmux worker cleanup command
 - [x] Restore tmux-backed workers on daemon start/restart
+
+### Authentication and Remote Access (Phase 2)
+
+- [x] Add token-based authentication module (`src/auth.js`)
+- [x] Add auth middleware with LAN bypass for Phase 1 backward compatibility
+- [x] Add login/logout/check API endpoints
+- [x] Add WebSocket upgrade authentication
+- [x] Add login page (`login.html` + `login.css`)
+- [x] Add frontend 401 handling with redirect to login
+- [x] Add WebSocket reconnection with exponential backoff (events + terminal)
+- [x] Add connection status indicator in workshop header
+- [x] Add `--auth` flag to force authentication for all requests
+- [x] Add `--auth-token` flag to set custom token
+- [x] Add `agenttown token reset` and `agenttown token show` commands
+- [x] Add login rate limiting and lockout protection
 
 ### Provider Adapters
 

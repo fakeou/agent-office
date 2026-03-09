@@ -13,33 +13,100 @@
     fitAddon: null,
     terminalSocket: null,
     terminalSessionId: null,
-    sessionMap: new Map()
+    sessionMap: new Map(),
+    connectionStatus: "connecting"
   };
 
   const app = document.querySelector("#app");
-  const eventsSocket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws/events`);
 
-  eventsSocket.addEventListener("message", (event) => {
-    const payload = JSON.parse(event.data);
-    if (payload.type === "sessions:snapshot") {
-      state.sessions = payload.sessions.filter(isVisibleWorkshopSession);
-    }
-    if (payload.type === "session:update") {
-      state.sessions = upsertSession(state.sessions, payload.session).filter(isVisibleWorkshopSession);
-    }
-    state.sessionMap = new Map(state.sessions.map((session) => [session.sessionId, session]));
-    state.serverOnline = true;
-    if (route().name === "terminal") {
-      renderTerminalInfo(route().sessionId);
-    } else {
-      render();
-    }
-  });
+  // --- WebSocket reconnection for /ws/events ---
 
-  eventsSocket.addEventListener("close", () => {
-    state.serverOnline = false;
-    render();
-  });
+  let eventsSocket = null;
+  let eventsReconnectDelay = 1000;
+  const EVENTS_MAX_DELAY = 30000;
+
+  function connectEventsSocket() {
+    state.connectionStatus = "connecting";
+    eventsSocket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws/events`);
+
+    eventsSocket.addEventListener("open", () => {
+      state.connectionStatus = "connected";
+      state.serverOnline = true;
+      eventsReconnectDelay = 1000;
+      updateConnectionIndicator();
+    });
+
+    eventsSocket.addEventListener("message", (event) => {
+      const payload = JSON.parse(event.data);
+      if (payload.type === "sessions:snapshot") {
+        state.sessions = payload.sessions.filter(isVisibleWorkshopSession);
+      }
+      if (payload.type === "session:update") {
+        state.sessions = upsertSession(state.sessions, payload.session).filter(isVisibleWorkshopSession);
+      }
+      state.sessionMap = new Map(state.sessions.map((session) => [session.sessionId, session]));
+      state.serverOnline = true;
+      if (route().name === "terminal") {
+        renderTerminalInfo(route().sessionId);
+      } else {
+        render();
+      }
+    });
+
+    eventsSocket.addEventListener("close", (event) => {
+      state.serverOnline = false;
+      state.connectionStatus = "reconnecting";
+      updateConnectionIndicator();
+
+      if (event.code === 4401 || event.reason === "unauthorized") {
+        window.location.href = "/login.html";
+        return;
+      }
+
+      setTimeout(() => {
+        eventsReconnectDelay = Math.min(eventsReconnectDelay * 2, EVENTS_MAX_DELAY);
+        connectEventsSocket();
+      }, eventsReconnectDelay);
+    });
+
+    eventsSocket.addEventListener("error", () => {
+      // Will trigger close event
+    });
+  }
+
+  function reconnectEventsAndSync() {
+    if (eventsSocket) {
+      eventsSocket.close();
+    }
+    connectEventsSocket();
+    api("/api/sessions").then((data) => {
+      if (data && data.sessions) {
+        state.sessions = data.sessions.filter(isVisibleWorkshopSession);
+        state.sessionMap = new Map(state.sessions.map((s) => [s.sessionId, s]));
+        render();
+      }
+    }).catch(() => {});
+  }
+
+  connectEventsSocket();
+
+  // --- Connection status indicator ---
+
+  function updateConnectionIndicator() {
+    const pill = document.querySelector(".status-pill");
+    if (pill) {
+      if (state.connectionStatus === "connected") {
+        pill.textContent = "online";
+        pill.style.background = "";
+      } else if (state.connectionStatus === "reconnecting") {
+        pill.textContent = "reconnecting...";
+        pill.style.background = "var(--waiting)";
+      } else {
+        pill.textContent = "connecting...";
+        pill.style.background = "var(--waiting)";
+      }
+    }
+  }
 
   window.addEventListener("hashchange", render);
   window.addEventListener("resize", () => {
@@ -81,6 +148,10 @@
       headers: { "Content-Type": "application/json" },
       ...options
     });
+    if (response.status === 401) {
+      window.location.href = "/login.html";
+      throw new Error("unauthorized");
+    }
     if (!response.ok) {
       throw new Error(await response.text());
     }
@@ -104,6 +175,12 @@
     });
   }
 
+  // --- Terminal WebSocket with reconnection ---
+
+  let terminalReconnectDelay = 1000;
+  const TERMINAL_MAX_DELAY = 30000;
+  let terminalReconnectTimer = null;
+
   function connectTerminal(sessionId) {
     if (state.terminalSessionId === sessionId && state.terminalSocket) {
       return;
@@ -114,6 +191,7 @@
       state.terminalSocket = null;
     }
     state.terminalSessionId = sessionId;
+    terminalReconnectDelay = 1000;
 
     const host = document.querySelector("#terminal-host");
     if (!host) {
@@ -133,10 +211,16 @@
     state.terminal.open(host);
     state.fitAddon.fit();
 
+    openTerminalSocket(sessionId);
+  }
+
+  function openTerminalSocket(sessionId) {
     const ws = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws/terminal/${encodeURIComponent(sessionId)}`);
     state.terminalSocket = ws;
 
     ws.addEventListener("open", () => {
+      terminalReconnectDelay = 1000;
+      updateTerminalWarning("");
       ws.send(JSON.stringify({ type: "resize", cols: state.terminal.cols, rows: state.terminal.rows }));
     });
 
@@ -167,6 +251,34 @@
       }
     });
 
+    ws.addEventListener("close", (event) => {
+      if (state.terminalSessionId !== sessionId) {
+        return;
+      }
+
+      if (event.code === 4401 || event.reason === "unauthorized") {
+        window.location.href = "/login.html";
+        return;
+      }
+
+      if (route().name === "terminal" && route().sessionId === sessionId) {
+        updateTerminalWarning("Connection lost. Reconnecting...");
+        if (state.terminal) {
+          state.terminal.write("\r\n[connection lost, reconnecting...]\r\n");
+        }
+        terminalReconnectTimer = setTimeout(() => {
+          if (state.terminalSessionId === sessionId && route().name === "terminal") {
+            terminalReconnectDelay = Math.min(terminalReconnectDelay * 2, TERMINAL_MAX_DELAY);
+            openTerminalSocket(sessionId);
+          }
+        }, terminalReconnectDelay);
+      }
+    });
+
+    ws.addEventListener("error", () => {
+      // Will trigger close
+    });
+
     state.terminal.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "input", data }));
@@ -174,7 +286,18 @@
     });
   }
 
+  function updateTerminalWarning(msg) {
+    const el = document.querySelector("#terminal-warning");
+    if (el) {
+      el.textContent = msg;
+    }
+  }
+
   function cleanupTerminal() {
+    if (terminalReconnectTimer) {
+      clearTimeout(terminalReconnectTimer);
+      terminalReconnectTimer = null;
+    }
     if (state.terminalSocket) {
       state.terminalSocket.close();
       state.terminalSocket = null;
@@ -190,6 +313,10 @@
   function renderWorkshop() {
     cleanupTerminal();
     const sessionCount = state.sessions.length;
+    const statusLabel = state.connectionStatus === "connected" ? "online" :
+      state.connectionStatus === "reconnecting" ? "reconnecting..." : "connecting...";
+    const statusStyle = state.connectionStatus === "connected" ? "" : "background:var(--waiting)";
+
     app.innerHTML = `
       <div class="page-shell">
         <header class="topbar">
@@ -199,7 +326,7 @@
           </div>
           <div class="worker-meta-row">
             <span class="pill">${sessionCount} active workers</span>
-            <span class="status-pill">${state.serverOnline ? "online" : "offline"}</span>
+            <span class="status-pill" style="${statusStyle}">${statusLabel}</span>
           </div>
         </header>
 

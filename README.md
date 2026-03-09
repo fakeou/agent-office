@@ -115,6 +115,67 @@ pnpm print-claude-hooks
 
 Open the UI at `http://127.0.0.1:8765`.
 
+## Authentication
+
+AgentTown uses token-based authentication for remote access. On first start, a random 64-character hex token is generated and saved to `~/.agenttown/token`.
+
+The token is printed in the terminal when the server starts. You can also view it:
+
+```bash
+agenttown token show
+```
+
+Reset the token (invalidates all existing sessions):
+
+```bash
+agenttown token reset
+```
+
+**LAN requests bypass authentication by default** to preserve the Phase 1 local experience. To force authentication for all requests including LAN:
+
+```bash
+agenttown start --auth
+```
+
+Set a custom token instead of the auto-generated one:
+
+```bash
+agenttown start --auth-token YOUR_TOKEN_HERE
+```
+
+## Remote Access (FRP)
+
+AgentTown does not manage FRP tunnels. You configure `frpc` yourself to expose the local AgentTown port to the public internet.
+
+**IMPORTANT: You MUST use HTTPS** when exposing AgentTown to the public internet. The access token is transmitted in cookies and must be protected in transit.
+
+### FRP Configuration Example
+
+Using the `https2http` plugin in `frpc.toml`:
+
+```toml
+[[proxies]]
+name = "agenttown"
+type = "https"
+customDomains = ["agenttown.example.com"]
+
+[proxies.plugin]
+type = "https2http"
+localAddr = "127.0.0.1:8765"
+crtPath = "/path/to/cert.pem"
+keyPath = "/path/to/key.pem"
+```
+
+Then access `https://agenttown.example.com` from any browser. You will be prompted for the access token on first visit.
+
+### Security Checklist
+
+- Always use HTTPS (via FRP `https2http` plugin, nginx, or Caddy)
+- Keep `~/.agenttown/token` file secure (default permission: `600`)
+- Use `agenttown token reset` periodically or after suspected compromise
+- Use `--auth` flag if you want LAN requests to also require authentication
+- The login page rate-limits attempts: 5 per minute per IP, lockout after 10 consecutive failures
+
 The workshop homepage now exposes two one-click launch actions for local tmux workers:
 
 - `Launch Claude`
@@ -174,7 +235,7 @@ Then copy the generated JSON into your Claude Code hooks settings. Once hooks ar
 - Hook-only Claude workers can update workshop state without owning a terminal; launch Claude through `agenttown claude` when you want a clickable shared terminal session.
 - `start` performs local preflight checks for `tmux`, `claude`, `codex`, and Claude hook configuration before serving the workshop.
 - `start` and `restart` restore previously running tmux-backed AgentTown workers from the local session registry before serving the workshop.
-- `cleanup` only removes tmux sessions whose names start with AgentTown's own `agenttown_` prefix.
+- `cleanup` only removes tmux sessions whose names start with AgentTown's own `agenttown_` prefix, and the running daemon reconciles any now-missing tmux workers out of the live workshop.
 - Generic and future providers remain extensible through provider-specific runtime events or text fallback when no structured protocol exists.
 - tmux/PTY sessions that have ended are removed from the main workshop view once they transition to `completed` or `exited`, so they do not linger as fake active workers.
 - Web-launched tmux workers stay attachable from the local machine through `agenttown attach <sessionId>` or the `Local Attach` command shown in the terminal view.

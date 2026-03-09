@@ -11,11 +11,60 @@
 
 ## Phase 2 — 公网远程访问
 
-> 目标：突破局域网限制，从任意网络环境管理本地 Agent。
+> 目标：突破局域网限制，从任意网络环境管理本地 Agent。AgentTown 不负责 FRP 隧道层，用户自行配置 frpc。AgentTown 负责应用层认证、WebSocket 断线重连和文档。
 
-- [ ] 支持外网通过移动端 APP 或浏览器访问 AgentTown 服务
-- [ ] 公网环境下保持终端会话的实时查看与控制能力
-- [ ] 引入鉴权机制，保障远程访问安全
+### Token 认证系统
+
+- [x] `src/auth.js` 认证模块（token 生成、时序安全比较、LAN 判断、限速）
+- [x] 启动时检查 `~/.agenttown/token`，不存在则生成 64 位 hex 随机 token
+- [x] `agenttown token reset` 命令：重新生成 token
+- [x] `agenttown token show` 命令：查看当前 token
+- [x] 启动时打印 token、文件路径和 HTTPS 安全警告
+
+### HTTP 认证中间件
+
+- [x] `POST /api/auth/login`：验证 token，设置 HttpOnly cookie（7 天有效）
+- [x] `POST /api/auth/logout`：清除 cookie
+- [x] `GET /api/auth/check`：返回认证状态
+- [x] 认证中间件：LAN 请求免认证（兼容 Phase 1）；非 LAN 或 `--auth` 强制认证
+- [x] 登录限速：同 IP 每分钟最多 5 次，连续失败 10 次锁定 15 分钟
+
+### WebSocket 认证
+
+- [x] `/ws/events` 和 `/ws/terminal/:sessionId` upgrade 请求检查 cookie token
+- [x] LAN 请求免认证规则同 HTTP
+- [x] 未认证 → 拒绝 upgrade，返回 401
+
+### 登录页面
+
+- [x] `static/login.html` + `static/login.css`：token 输入 + 登录按钮
+- [x] 成功后跳转主页，失败显示错误和剩余尝试次数
+- [x] 样式与 AgentTown 现有风格一致
+
+### 前端认证感知
+
+- [x] 所有 fetch 请求处理 401 → 跳转登录页
+- [x] WebSocket 连接失败检查认证问题
+
+### WebSocket 断线重连
+
+- [x] Events WebSocket 断线自动重连，指数退避（1s → 2s → 4s → ... → 30s 上限）
+- [x] 重连成功后重新拉取 `/api/sessions` 同步全量状态
+- [x] UI 连接状态指示器（online / reconnecting... / connecting...）
+- [x] Terminal WebSocket 断线自动重连，指数退避
+- [x] 终端显示 "connection lost, reconnecting..." 提示
+
+### CLI 参数
+
+- [x] `--auth` 标志：强制所有请求认证（包括 LAN）
+- [x] `--auth-token <token>`：指定自定义 token
+- [x] 启动日志打印当前认证模式
+
+### 文档
+
+- [x] `ROADMAP.md`：Phase 2 细化 checklist
+- [x] `PROJECT_NOTES.md`：Phase 2 架构描述
+- [x] `README.md`：公网访问章节
 
 ## Phase 3 — 像素风游戏化 Workshop
 

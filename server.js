@@ -18,6 +18,7 @@ const { listSessionRecords, removeSessionRecord } = require("./src/runtime/sessi
 const { printClaudeHooksConfig } = require("./src/providers/claude");
 const { DEFAULT_HOST, DEFAULT_LAN_HOST, DEFAULT_PORT, DEFAULT_SERVER_URL } = require("./src/config");
 const { listAgentTownSessions, killSession, tmuxPath } = require("./src/runtime/tmux");
+const auth = require("./src/auth");
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -106,8 +107,37 @@ async function resolveAttachTarget({ target, server }) {
   return null;
 }
 
+function printAuthInfo(forceAuth, token) {
+  console.log("");
+  console.log("AgentTown Authentication");
+  console.log(`- token file: ${auth.TOKEN_PATH}`);
+  console.log(`- token: ${token}`);
+  console.log(`- auth mode: ${forceAuth ? "all requests require token" : "LAN requests bypass auth"}`);
+  console.log("");
+  console.log("WARNING: If exposing to the public internet via FRP or reverse proxy,");
+  console.log("         you MUST use HTTPS to protect the token in transit.");
+  console.log("");
+}
+
 async function main() {
   const { action, subaction, options, command } = parseArgs(process.argv);
+
+  // --- Token management commands ---
+  if (action === "token") {
+    if (subaction === "reset") {
+      const newToken = auth.resetToken();
+      console.log("Token reset successfully.");
+      console.log(`New token: ${newToken}`);
+      console.log(`Token file: ${auth.TOKEN_PATH}`);
+      return;
+    }
+    if (subaction === "show" || !subaction) {
+      const token = auth.loadOrCreateToken();
+      console.log(token);
+      return;
+    }
+    throw new Error(`unknown token subcommand: ${subaction}`);
+  }
 
   if (action === "start" || action === "restart") {
     const nodePtySetup = ensureNodePtySpawnHelper();
@@ -119,6 +149,13 @@ async function main() {
     const port = Number(options.port || DEFAULT_PORT);
     const localServerUrl = `http://127.0.0.1:${port}`;
     const handlerPath = path.resolve(__dirname, "server.js");
+    const forceAuth = !!options.auth;
+
+    // Initialize token
+    if (options["auth-token"]) {
+      auth.setToken(String(options["auth-token"]));
+    }
+    const token = auth.loadOrCreateToken();
 
     console.log("AgentTown preflight");
     console.log(`- tmux: ${commandExists("tmux") ? resolveCommand("tmux") : "missing"}`);
@@ -143,12 +180,14 @@ async function main() {
     const store = createSessionStore();
     const ptyManager = createPtyManager({ store });
     const restored = ptyManager.restoreManagedSessions();
-    createAppServer({ host, port, store, ptyManager });
+    createAppServer({ host, port, store, ptyManager, forceAuth });
     console.log(`AgentTown restored ${restored.length} session(s).`);
     console.log("AgentTown URLs");
     for (const url of networkUrls({ host, port })) {
       console.log(`- ${url}`);
     }
+
+    printAuthInfo(forceAuth, token);
     return;
   }
 
@@ -235,7 +274,15 @@ async function main() {
     const ptyManager = createPtyManager({ store });
     const host = options.host || DEFAULT_HOST;
     const port = Number(options.port || DEFAULT_PORT);
-    createAppServer({ host, port, store, ptyManager });
+    const forceAuth = !!options.auth;
+
+    if (options["auth-token"]) {
+      auth.setToken(String(options["auth-token"]));
+    }
+    const token = auth.loadOrCreateToken();
+
+    createAppServer({ host, port, store, ptyManager, forceAuth });
+    printAuthInfo(forceAuth, token);
     return;
   }
 
