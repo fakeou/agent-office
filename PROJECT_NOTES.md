@@ -45,37 +45,40 @@ Out of scope for this phase:
 
 ### Authentication Model (Phase 2)
 
-AgentTown uses a token-based authentication system designed for remote access via FRP tunnels.
+AgentTown uses a token-based authentication system for local access protection, and a Relay-based tunnel for remote access.
 
-**Security model:**
+**Local token security model:**
 
 - Token storage: `~/.agenttown/token` file, plaintext, file permission `600`
-- Transport protection: relies on HTTPS (user configures via FRP `https2http` plugin or nginx reverse proxy)
 - Auth flow: client submits token via `POST /api/auth/login`, server sets `HttpOnly` + `SameSite=Strict` cookie (7-day TTL)
 - LAN bypass: by default, requests from `127.*`, `192.168.*`, `10.*`, `172.16-31.*` skip token verification (Phase 1 backward compatibility)
 - Force auth: `--auth` flag makes all requests require token, including LAN
 - Brute-force protection: per-IP rate limit (5 attempts/minute), lockout after 10 consecutive failures (15-minute cooldown)
-- WebSocket protection: upgrade requests check the same cookie; HTTPS tunnels automatically upgrade to `wss://`
+- WebSocket protection: upgrade requests check the same cookie
 - Token rotation: `agenttown token reset` regenerates the token and overwrites the file
 
-**FRP configuration guide:**
+**Relay tunnel model (hosted mode):**
 
-AgentTown does not manage FRP tunnels. The operator is responsible for running `frpc` with the `https2http` plugin (or equivalent) that terminates TLS and forwards plaintext HTTP to the local AgentTown port. Example `frpc.toml` snippet:
+AgentTown connects to a managed Relay server via `--key sk_xxx --relay URL`. The Relay handles:
 
-```toml
-[[proxies]]
-name = "agenttown"
-type = "https"
-customDomains = ["agenttown.example.com"]
+- Tunnel establishment: CLI opens a WebSocket to the Relay, which proxies HTTP and WebSocket traffic to the local AgentTown daemon
+- Authentication: API Key (registered through the dashboard) identifies the user; the Relay issues JWTs for browser sessions
+- Session state caching: the Relay caches workshop status summaries so remote clients can see agent state even before the tunnel data arrives
+- Heartbeat and reconnection: the tunnel client sends periodic pings and reconnects with exponential backoff on disconnect
 
-[proxies.plugin]
-type = "https2http"
-localAddr = "127.0.0.1:8765"
-crtPath = "/path/to/cert.pem"
-keyPath = "/path/to/key.pem"
-```
+Message types on the tunnel WebSocket:
 
-Alternative: use nginx or Caddy as a local reverse proxy with HTTPS, then tunnel HTTP through FRP to the reverse proxy.
+| Type | Direction | Purpose |
+|---|---|---|
+| `auth` | CLI → Relay | Authenticate with API Key |
+| `auth:ok` | Relay → CLI | Confirm authentication, return public URL |
+| `http:request` | Relay → CLI | Proxy an HTTP request to local server |
+| `http:response` | CLI → Relay | Return the local server's HTTP response |
+| `ws:open` | Relay → CLI | Open a proxied WebSocket to local server |
+| `ws:message` | Both | Forward WebSocket frames |
+| `ws:close` | Both | Close a proxied WebSocket |
+| `status:summary` | CLI → Relay | Push session status summary for caching |
+| `ping` / `pong` | Both | Keepalive |
 
 **Auth middleware flow:**
 
@@ -88,48 +91,59 @@ Alternative: use nginx or Caddy as a local reverse proxy with HTTPS, then tunnel
 
 ### Current Module Layout
 
-- `server.js`
-  CLI entrypoint for `start`, `codex`, `claude`, `serve`, `run`, `claude-hook`, `print-claude-hooks`, and `token` subcommands, plus startup repair for `node-pty` spawn-helper permissions on macOS, local `tmux attach` support, and `--auth` / `--auth-token` flags.
+The project is organized as a pnpm monorepo with three packages:
+
+**`packages/cli/` (`agenttown`)** — CLI entrypoint and local daemon
+
+- `src/index.js`
+  CLI entrypoint for `start`, `codex`, `claude`, `serve`, `run`, `claude-hook`, `print-claude-hooks`, and `token` subcommands, plus startup repair for `node-pty` spawn-helper permissions on macOS, local `tmux attach` support, `--auth` / `--auth-token` flags, and `--key` / `--relay` flags for hosted mode tunnel.
 - `src/auth.js`
   Token generation, file persistence, timing-safe verification, LAN IP detection, per-IP login rate limiting, and cookie helpers.
 - `src/server.js`
   Express app, REST API, static serving, auth middleware, login/logout/check endpoints, and WebSocket upgrade handling with token verification.
-- `src/runtime/pty-manager.js`
-  Managed PTY lifecycle, tmux-backed session lifecycle, terminal WebSocket binding, shared-session attach flow, and launch registration only after transport startup succeeds.
-- `src/runtime/ensure-node-pty.js`
-  Repairs `node-pty` spawn-helper execute permissions when package extraction leaves the helper non-executable on macOS.
-- `src/runtime/cli-helpers.js`
-  CLI preflight checks, LAN URL discovery, command resolution, and Claude hook installation helpers.
-- `src/runtime/session-registry.js`
-  Local file registry for tmux-backed worker metadata so the daemon can restore sessions after restart.
-- `src/runtime/tmux.js`
-  tmux session creation, pane inspection, attach-client spawning, and local attach command generation.
+- `src/tunnel.js`
+  Relay tunnel client: connects to the Relay server via WebSocket, proxies HTTP requests and WebSocket connections to the local daemon, sends status summaries, and handles heartbeat/reconnection.
+
+**`packages/core/` (`@agenttown/core`)** — Shared state, store, and config
+
 - `src/store/session-store.js`
   In-memory session registry, logs, event history, and update emitter.
-- `src/providers/base.js`
-  Base provider contract.
-- `src/providers/claude.js`
-  Claude hook event mapping and hook config generation.
-- `src/providers/codex.js`
-  Codex provider that links managed PTY sessions to local Codex lifecycle records.
-- `src/providers/codex-transcript.js`
-  Codex session-log discovery and JSONL lifecycle summarization.
-- `src/providers/generic.js`
-  Generic CLI fallback classification.
-- `src/providers/index.js`
-  Provider registry and adapter lookup.
+- `src/config.js`
+  Shared constants (default host, port, server URL).
 - `src/state.js`
   Shared display-state constants and workshop zone mapping.
-- `static/index.html`
+- `src/providers/`
+  Provider registry and adapters (Claude, Codex, Generic).
+
+**`packages/runtime/` (`@agenttown/runtime`)** — PTY, tmux, and CLI helpers
+
+- `src/pty-manager.js`
+  Managed PTY lifecycle, tmux-backed session lifecycle, terminal WebSocket binding, shared-session attach flow, and launch registration only after transport startup succeeds.
+- `src/ensure-node-pty.js`
+  Repairs `node-pty` spawn-helper execute permissions on macOS.
+- `src/cli-helpers.js`
+  CLI preflight checks, LAN URL discovery, command resolution, and Claude hook installation helpers.
+- `src/session-registry.js`
+  Local file registry for tmux-backed worker metadata so the daemon can restore sessions after restart.
+- `src/tmux.js`
+  tmux session creation, pane inspection, attach-client spawning, and local attach command generation.
+
+**`packages/web/` (`@agenttown/web`)** — Frontend assets
+
+- `public/index.html`
   Plain HTML shell with `@xterm/xterm` CDN loading.
-- `static/login.html`
-  Token login page for remote access authentication.
-- `static/login.css`
+- `public/login.html`
+  Token login page for local access authentication.
+- `public/login.css`
   Login page styling.
-- `static/app.js`
+- `public/app.js`
   Workshop view, hash routing, WebSocket clients with reconnection and auth-awareness, connection status indicator, and terminal view.
-- `static/styles.css`
+- `public/styles.css`
   Workshop and terminal styling.
+
+**`packages/api/` (`@agenttown/api`)** — Dashboard API server (user accounts, API keys)
+
+**`packages/relay/` (`@agenttown/relay`)** — Relay server (tunnel proxying, session state caching)
 
 ### Transport Model
 

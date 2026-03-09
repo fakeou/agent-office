@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentTown — Dashboard</title>
+    <link rel="stylesheet" href="/login.css" />
+  </head>
+  <body class="dash-page">
+    <div class="dash-shell">
+      <div class="dash-card">
+        <!-- Header -->
+        <div class="dash-header">
+          <div class="dash-brand">
+            <div class="dash-brand-mark">
+              <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <span class="dash-brand-name">AgentTown</span>
+          </div>
+          <button class="dash-logout" id="logout-btn">Log out</button>
+        </div>
+
+        <h1 class="dash-title">Dashboard</h1>
+        <div class="dash-user" id="user-info">Loading...</div>
+
+        <!-- API Keys -->
+        <div class="dash-section">
+          <h2 class="dash-section-title">API Keys</h2>
+          <div id="new-key-area"></div>
+          <div id="keys-list"><p class="dash-empty">Loading...</p></div>
+          <button class="dash-create-btn" id="create-key-btn">+ Create New Key</button>
+        </div>
+
+        <!-- Connect Workshop -->
+        <div class="dash-section">
+          <h2 class="dash-section-title">Connect Your Workshop</h2>
+          <div class="dash-command" id="command-box">
+            <code id="startup-command">Create an API key first</code>
+          </div>
+          <p class="dash-helper">Run this command on your local machine to connect your workshop to the cloud.</p>
+          <a href="#" class="dash-workshop-link offline" id="workshop-link" style="margin-top:16px">View Workshop (offline)</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const API_BASE = window.AGENTTOWN_API_BASE || "";
+        const token = localStorage.getItem("agenttown_jwt");
+        const userId = localStorage.getItem("agenttown_user_id");
+        const relayUrl = window.location.origin;
+
+        if (!token || !userId) {
+          window.location.href = "/register.html";
+          return;
+        }
+
+        let currentKeys = [];
+        let latestNewKey = null;
+
+        async function apiFetch(path, options = {}) {
+          const res = await fetch(`${API_BASE}${path}`, {
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + token
+            },
+            ...options
+          });
+          if (res.status === 401) {
+            localStorage.removeItem("agenttown_jwt");
+            localStorage.removeItem("agenttown_user_id");
+            window.location.href = "/register.html";
+            throw new Error("unauthorized");
+          }
+          if (!res.ok) throw new Error(await res.text());
+          return res.json();
+        }
+
+        async function loadUser() {
+          try {
+            const user = await apiFetch("/api/auth/me");
+            document.getElementById("user-info").innerHTML =
+              "<strong>" + esc(user.displayName || "User") + "</strong> " + esc(user.email);
+          } catch {
+            document.getElementById("user-info").textContent = "Failed to load user info";
+          }
+        }
+
+        async function loadKeys() {
+          try {
+            const data = await apiFetch("/api/keys");
+            currentKeys = data.keys || [];
+            renderKeys();
+          } catch {
+            document.getElementById("keys-list").innerHTML = '<p class="dash-empty">Failed to load keys</p>';
+          }
+        }
+
+        function renderKeys() {
+          const container = document.getElementById("keys-list");
+          if (currentKeys.length === 0) {
+            container.innerHTML = '<p class="dash-empty">No API keys yet. Create one to get started.</p>';
+            updateCommand(null);
+            return;
+          }
+
+          container.innerHTML = currentKeys.map(function (key) {
+            return '<div class="dash-key-item">' +
+              '<span class="dash-key-prefix">' + esc(key.keyPrefix) + '...</span>' +
+              '<span class="dash-key-label">' + esc(key.label || "") + '</span>' +
+              '<span class="dash-key-date">' + (key.createdAt ? key.createdAt.split(" ")[0] : "") + '</span>' +
+              '<button class="dash-key-delete" data-key-id="' + esc(key.id) + '">Delete</button>' +
+            '</div>';
+          }).join("");
+
+          container.querySelectorAll(".dash-key-delete").forEach(function (btn) {
+            btn.addEventListener("click", async function () {
+              if (!confirm("Delete this API key? Any workshops using it will disconnect.")) return;
+              btn.disabled = true;
+              try {
+                await apiFetch("/api/keys/" + btn.dataset.keyId, { method: "DELETE" });
+                await loadKeys();
+              } catch {
+                btn.disabled = false;
+              }
+            });
+          });
+
+          if (latestNewKey) {
+            updateCommand(latestNewKey);
+          } else {
+            updateCommand(null);
+            var cmd = document.getElementById("startup-command");
+            cmd.textContent = "agenttown start --key " + currentKeys[0].keyPrefix + "... --relay " + relayUrl;
+          }
+        }
+
+        function updateCommand(fullKey) {
+          var cmd = document.getElementById("startup-command");
+          var box = document.getElementById("command-box");
+          if (!fullKey) {
+            if (currentKeys.length === 0) {
+              cmd.textContent = "Create an API key first";
+              var old = box.querySelector(".dash-copy-btn");
+              if (old) old.remove();
+            }
+            return;
+          }
+          var command = "agenttown start --key " + fullKey + " --relay " + relayUrl;
+          cmd.textContent = command;
+
+          if (!box.querySelector(".dash-copy-btn")) {
+            var copyBtn = document.createElement("button");
+            copyBtn.className = "dash-copy-btn";
+            copyBtn.textContent = "Copy";
+            copyBtn.addEventListener("click", function () {
+              navigator.clipboard.writeText(command).then(function () {
+                copyBtn.textContent = "Copied!";
+                setTimeout(function () { copyBtn.textContent = "Copy"; }, 2000);
+              });
+            });
+            box.appendChild(copyBtn);
+          }
+        }
+
+        document.getElementById("create-key-btn").addEventListener("click", async function () {
+          var btn = document.getElementById("create-key-btn");
+          btn.disabled = true;
+          btn.textContent = "Creating...";
+          try {
+            var result = await apiFetch("/api/keys", {
+              method: "POST",
+              body: JSON.stringify({ label: "workshop" })
+            });
+            latestNewKey = result.key;
+
+            document.getElementById("new-key-area").innerHTML =
+              '<div class="dash-new-key">' +
+                '<p>New key created \u2014 copy it now, it won\'t be shown again!</p>' +
+                '<div class="dash-new-key-value">' +
+                  '<code>' + esc(result.key) + '</code>' +
+                  '<button class="dash-copy-btn" id="copy-new-key">Copy Key</button>' +
+                '</div>' +
+              '</div>';
+
+            document.getElementById("copy-new-key").addEventListener("click", function () {
+              navigator.clipboard.writeText(result.key).then(function () {
+                var el = document.getElementById("copy-new-key");
+                if (el) { el.textContent = "Copied!"; setTimeout(function () { if (el) el.textContent = "Copy Key"; }, 2000); }
+              });
+            });
+
+            await loadKeys();
+          } catch (err) {
+            alert("Failed to create key: " + err.message);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "+ Create New Key";
+          }
+        });
+
+        async function checkWorkshopStatus() {
+          var link = document.getElementById("workshop-link");
+          try {
+            var res = await fetch(API_BASE + "/api/users/" + encodeURIComponent(userId) + "/status");
+            if (res.ok) {
+              var status = await res.json();
+              if (status.online) {
+                link.href = "/tunnel/" + encodeURIComponent(userId) + "/";
+                link.textContent = "View Workshop";
+                link.classList.remove("offline");
+                return;
+              }
+            }
+          } catch {}
+          link.textContent = "View Workshop (offline)";
+          link.classList.add("offline");
+          link.href = "#";
+        }
+
+        document.getElementById("logout-btn").addEventListener("click", function () {
+          localStorage.removeItem("agenttown_jwt");
+          localStorage.removeItem("agenttown_user_id");
+          window.location.href = "/register.html";
+        });
+
+        function esc(value) {
+          return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        loadUser();
+        loadKeys();
+        checkWorkshopStatus();
+        setInterval(checkWorkshopStatus, 15000);
+      })();
+    </script>
+  </body>
+</html>

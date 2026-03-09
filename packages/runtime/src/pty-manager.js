@@ -1,7 +1,7 @@
 const crypto = require("node:crypto");
 const os = require("node:os");
 const pty = require("node-pty");
-const { getProvider } = require("../providers");
+const { getProvider } = require("@agenttown/core");
 const {
   AGENTTOWN_TMUX_PREFIX,
   attachClient,

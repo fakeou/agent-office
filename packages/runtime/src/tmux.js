@@ -27,8 +27,12 @@ function shellQuote(value) {
 }
 
 function createTmuxSession({ sessionName, cwd, command, shell }) {
+  // Clean env: remove CLAUDECODE to prevent "nested session" detection
+  const cleanEnv = { ...process.env };
+  delete cleanEnv.CLAUDECODE;
+
   const createResult = runTmux(["new-session", "-d", "-s", sessionName, "-c", cwd], {
-    env: process.env
+    env: cleanEnv
   });
   assertTmuxOk(createResult, "new-session");
 

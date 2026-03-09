@@ -1,0 +1,11 @@
+{
+  "name": "@agenttown/runtime",
+  "version": "0.2.0",
+  "private": true,
+  "main": "src/index.js",
+  "files": ["src"],
+  "dependencies": {
+    "@agenttown/core": "workspace:*",
+    "node-pty": "^1.0.0"
+  }
+}

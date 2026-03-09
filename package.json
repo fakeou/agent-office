@@ -1,32 +1,33 @@
 {
-  "name": "agenttown",
+  "name": "agenttown-monorepo",
   "version": "0.2.0",
   "private": true,
   "packageManager": "pnpm@10",
   "description": "Local-first AI workshop supervisor for Claude, Codex, and other terminal coding agents.",
-  "main": "server.js",
-  "bin": {
-    "agenttown": "server.js"
-  },
   "scripts": {
-    "postinstall": "node -e \"const { ensureNodePtySpawnHelper } = require('./src/runtime/ensure-node-pty'); const result = ensureNodePtySpawnHelper(); if (result.changed.length) console.log('Repaired node-pty spawn-helper permissions:', result.changed.join(', '));\"",
-    "start": "node server.js serve",
-    "daemon": "node server.js start",
-    "restart": "node server.js restart",
-    "cli:start": "node server.js start",
-    "cli:codex": "node server.js codex",
-    "cli:claude": "node server.js claude",
-    "cleanup": "node server.js cleanup",
-    "attach": "node server.js attach",
-    "codex": "node server.js codex",
-    "claude": "node server.js claude",
-    "serve": "node server.js serve",
-    "run": "node server.js run",
-    "print-claude-hooks": "node server.js print-claude-hooks"
+    "postinstall": "node -e \"const { ensureNodePtySpawnHelper } = require('./packages/runtime/src/ensure-node-pty'); const result = ensureNodePtySpawnHelper(); if (result.changed.length) console.log('Repaired node-pty spawn-helper permissions:', result.changed.join(', '));\"",
+    "start": "node packages/cli/src/index.js serve",
+    "daemon": "node packages/cli/src/index.js start",
+    "restart": "node packages/cli/src/index.js restart",
+    "cli:start": "node packages/cli/src/index.js start",
+    "cli:codex": "node packages/cli/src/index.js codex",
+    "cli:claude": "node packages/cli/src/index.js claude",
+    "cleanup": "node packages/cli/src/index.js cleanup",
+    "attach": "node packages/cli/src/index.js attach",
+    "codex": "node packages/cli/src/index.js codex",
+    "claude": "node packages/cli/src/index.js claude",
+    "serve": "node packages/cli/src/index.js serve",
+    "run": "node packages/cli/src/index.js run",
+    "print-claude-hooks": "node packages/cli/src/index.js print-claude-hooks",
+    "relay": "node packages/relay/src/index.js",
+    "api": "node packages/api/src/index.js"
   },
   "dependencies": {
     "express": "^4.21.2",
     "node-pty": "^1.0.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "better-sqlite3": "^11.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0"
   }
 }

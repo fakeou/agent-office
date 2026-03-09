@@ -15,4 +15,3 @@ function getProvider(name) {
 module.exports = {
   getProvider
 };
-

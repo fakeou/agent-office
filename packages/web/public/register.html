@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentTown — Sign Up / Login</title>
+    <link rel="stylesheet" href="/login.css" />
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+  </head>
+  <body class="auth-page">
+    <div class="auth-shell">
+      <div class="auth-card">
+        <!-- Brand -->
+        <div class="auth-brand">
+          <div class="auth-brand-mark">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <span class="auth-brand-name">AgentTown</span>
+        </div>
+
+        <h1 class="auth-title" id="page-title">Welcome back</h1>
+        <p class="auth-subtitle" id="page-desc">Sign in to manage your API keys and workshop.</p>
+
+        <!-- ===== LOGIN ===== -->
+        <div class="auth-mode active" id="login-section">
+          <form class="auth-form" id="login-form">
+            <div class="auth-field">
+              <label class="auth-label" for="login-email">Email</label>
+              <input class="auth-input" id="login-email" type="email" placeholder="you@example.com" autocomplete="email" required />
+            </div>
+            <div class="auth-field">
+              <label class="auth-label" for="login-password">Password</label>
+              <input class="auth-input" id="login-password" type="password" placeholder="Your password" autocomplete="current-password" required />
+            </div>
+            <button class="auth-btn auth-btn-primary" type="submit" id="login-btn">Log In</button>
+          </form>
+        </div>
+
+        <!-- ===== REGISTER ===== -->
+        <div class="auth-mode" id="register-section">
+          <form class="auth-form" id="register-form">
+            <div class="auth-field">
+              <label class="auth-label" for="reg-email">Email</label>
+              <div class="auth-email-row">
+                <input class="auth-input" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email" required />
+                <button type="button" class="auth-send-btn" id="send-code-btn">Send Code</button>
+              </div>
+            </div>
+
+            <div class="auth-turnstile" id="turnstile-container"></div>
+
+            <div class="auth-code-row" id="code-row">
+              <input class="auth-code-input" id="code-input" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" required />
+              <button type="button" class="auth-resend-btn" id="resend-btn" disabled>Resend</button>
+            </div>
+
+            <div class="auth-field">
+              <label class="auth-label" for="reg-password">Password</label>
+              <input class="auth-input" id="reg-password" type="password" placeholder="Choose a password" autocomplete="new-password" required />
+            </div>
+            <div class="auth-field">
+              <label class="auth-label" for="reg-name">Display Name</label>
+              <input class="auth-input" id="reg-name" type="text" placeholder="Optional" autocomplete="name" />
+            </div>
+            <button class="auth-btn auth-btn-primary" type="submit" id="register-btn">Create Account</button>
+          </form>
+        </div>
+
+        <div id="auth-error" class="auth-error" hidden></div>
+
+        <div class="auth-toggle">
+          <span id="toggle-text">Don't have an account?</span>
+          <a id="toggle-link">Sign up</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const API_BASE = window.AGENTTOWN_API_BASE || "";
+
+        const errorBox = document.getElementById("auth-error");
+        const loginSection = document.getElementById("login-section");
+        const registerSection = document.getElementById("register-section");
+        const pageTitle = document.getElementById("page-title");
+        const pageDesc = document.getElementById("page-desc");
+        const toggleText = document.getElementById("toggle-text");
+        const toggleLink = document.getElementById("toggle-link");
+        const loginForm = document.getElementById("login-form");
+        const registerForm = document.getElementById("register-form");
+        const loginBtn = document.getElementById("login-btn");
+        const registerBtn = document.getElementById("register-btn");
+        const sendCodeBtn = document.getElementById("send-code-btn");
+        const codeRow = document.getElementById("code-row");
+        const codeInput = document.getElementById("code-input");
+        const resendBtn = document.getElementById("resend-btn");
+        const regEmail = document.getElementById("reg-email");
+
+        let isRegister = false;
+        let codeSent = false;
+        let countdownTimer = null;
+        let turnstileWidgetId = null;
+        let turnstileSiteKey = "";
+
+        // --- Mode toggle ---
+        toggleLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          isRegister = !isRegister;
+          errorBox.hidden = true;
+          if (isRegister) {
+            pageTitle.textContent = "Create account";
+            pageDesc.textContent = "Sign up to get your API key and connect your workshop.";
+            loginSection.classList.remove("active");
+            registerSection.classList.add("active");
+            toggleText.textContent = "Already have an account?";
+            toggleLink.textContent = "Log in";
+          } else {
+            pageTitle.textContent = "Welcome back";
+            pageDesc.textContent = "Sign in to manage your API keys and workshop.";
+            registerSection.classList.remove("active");
+            loginSection.classList.add("active");
+            toggleText.textContent = "Don't have an account?";
+            toggleLink.textContent = "Sign up";
+          }
+        });
+
+        // --- Turnstile ---
+        async function initTurnstile() {
+          try {
+            const res = await fetch(`${API_BASE}/api/config/public`);
+            const data = await res.json();
+            turnstileSiteKey = data.turnstileSiteKey || "";
+          } catch { /* ignore */ }
+
+          if (turnstileSiteKey) {
+            const tryRender = () => {
+              if (typeof turnstile !== "undefined") renderTurnstile();
+            };
+            tryRender();
+            window.addEventListener("load", tryRender);
+          }
+        }
+
+        function renderTurnstile() {
+          const container = document.getElementById("turnstile-container");
+          if (turnstileWidgetId !== null) return;
+          turnstileWidgetId = turnstile.render(container, {
+            sitekey: turnstileSiteKey,
+            theme: "light"
+          });
+        }
+
+        function getTurnstileToken() {
+          if (!turnstileSiteKey || typeof turnstile === "undefined") return "";
+          return turnstile.getResponse(turnstileWidgetId) || "";
+        }
+
+        function resetTurnstile() {
+          if (turnstileWidgetId !== null && typeof turnstile !== "undefined") {
+            turnstile.reset(turnstileWidgetId);
+          }
+        }
+
+        initTurnstile();
+
+        // --- Send code ---
+        sendCodeBtn.addEventListener("click", () => sendCode());
+        resendBtn.addEventListener("click", () => sendCode());
+
+        async function sendCode() {
+          const email = regEmail.value.trim();
+          if (!email) { showError("Please enter your email."); return; }
+          errorBox.hidden = true;
+          sendCodeBtn.disabled = true;
+          sendCodeBtn.textContent = "Sending...";
+          resendBtn.disabled = true;
+
+          try {
+            const res = await fetch(`${API_BASE}/api/auth/send-code`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, turnstileToken: getTurnstileToken() })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+              showError(data.error || "Failed to send code.");
+              resetTurnstile();
+              sendCodeBtn.disabled = false;
+              sendCodeBtn.textContent = "Send Code";
+              return;
+            }
+
+            codeSent = true;
+            codeRow.classList.add("visible");
+            codeInput.focus();
+            startCountdown(60);
+            sendCodeBtn.textContent = "Sent";
+            sendCodeBtn.classList.add("sent");
+          } catch {
+            showError("Connection failed. Is the API server running?");
+            sendCodeBtn.disabled = false;
+            sendCodeBtn.textContent = "Send Code";
+          }
+        }
+
+        function startCountdown(seconds) {
+          clearInterval(countdownTimer);
+          let remaining = seconds;
+          resendBtn.disabled = true;
+          resendBtn.textContent = remaining + "s";
+          countdownTimer = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+              clearInterval(countdownTimer);
+              resendBtn.disabled = false;
+              resendBtn.textContent = "Resend";
+              sendCodeBtn.disabled = false;
+              sendCodeBtn.textContent = "Send Code";
+              sendCodeBtn.classList.remove("sent");
+            } else {
+              resendBtn.textContent = remaining + "s";
+            }
+          }, 1000);
+        }
+
+        // --- Register ---
+        registerForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          errorBox.hidden = true;
+
+          if (!codeSent) {
+            showError("Please send a verification code first.");
+            return;
+          }
+
+          const code = codeInput.value.trim();
+          if (code.length !== 6) {
+            showError("Please enter the 6-digit verification code.");
+            return;
+          }
+
+          registerBtn.disabled = true;
+          registerBtn.textContent = "Creating account...";
+
+          try {
+            const res = await fetch(`${API_BASE}/api/auth/register`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: regEmail.value.trim(),
+                password: document.getElementById("reg-password").value,
+                displayName: document.getElementById("reg-name").value.trim(),
+                code
+              })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.token) {
+              localStorage.setItem("agenttown_jwt", data.token);
+              localStorage.setItem("agenttown_user_id", data.userId);
+              window.location.href = "/dashboard.html";
+              return;
+            }
+
+            showError(data.error || "Registration failed.");
+          } catch {
+            showError("Connection failed. Is the API server running?");
+          } finally {
+            registerBtn.disabled = false;
+            registerBtn.textContent = "Create Account";
+          }
+        });
+
+        // --- Login ---
+        loginForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          errorBox.hidden = true;
+          loginBtn.disabled = true;
+          loginBtn.textContent = "Signing in...";
+
+          try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: document.getElementById("login-email").value.trim(),
+                password: document.getElementById("login-password").value
+              })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.token) {
+              localStorage.setItem("agenttown_jwt", data.token);
+              localStorage.setItem("agenttown_user_id", data.userId);
+              window.location.href = "/dashboard.html";
+              return;
+            }
+
+            showError(data.error || "Login failed.");
+          } catch {
+            showError("Connection failed. Is the API server running?");
+          } finally {
+            loginBtn.disabled = false;
+            loginBtn.textContent = "Log In";
+          }
+        });
+
+        function showError(msg) {
+          errorBox.textContent = msg;
+          errorBox.hidden = false;
+        }
+      })();
+    </script>
+  </body>
+</html>

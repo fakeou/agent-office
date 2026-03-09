@@ -11,15 +11,15 @@
 
 ## Phase 2 — 公网远程访问
 
-> 目标：突破局域网限制，从任意网络环境管理本地 Agent。AgentTown 不负责 FRP 隧道层，用户自行配置 frpc。AgentTown 负责应用层认证、WebSocket 断线重连和文档。
+> 目标：突破局域网限制，从任意网络环境管理本地 Agent。通过 Relay 托管模式建立隧道，AgentTown 负责应用层认证、WebSocket 断线重连和隧道管理。
 
-### Token 认证系统
+### Token 认证系统（本地模式）
 
 - [x] `src/auth.js` 认证模块（token 生成、时序安全比较、LAN 判断、限速）
 - [x] 启动时检查 `~/.agenttown/token`，不存在则生成 64 位 hex 随机 token
 - [x] `agenttown token reset` 命令：重新生成 token
 - [x] `agenttown token show` 命令：查看当前 token
-- [x] 启动时打印 token、文件路径和 HTTPS 安全警告
+- [x] 启动时打印 token、文件路径和认证模式
 
 ### HTTP 认证中间件
 
@@ -66,6 +66,15 @@
 - [x] `PROJECT_NOTES.md`：Phase 2 架构描述
 - [x] `README.md`：公网访问章节
 
+### Relay 托管模式
+
+- [x] `packages/cli/src/tunnel.js`：Relay 隧道客户端（WebSocket 连接、HTTP/WS 代理、心跳、断线重连）
+- [x] `packages/relay/`：Relay 服务端（隧道代理、状态缓存）
+- [x] `packages/api/`：Dashboard API（用户注册、API Key 管理）
+- [x] `--key sk_xxx --relay URL` CLI 参数启动托管模式
+- [x] 隧道建立后自动推送 session 状态摘要到 Relay 缓存
+- [x] ~~FRP 模式~~ 已废弃，统一到 Relay 托管模式
+
 ## Phase 3 — 像素风游戏化 Workshop
 
 > 目标：将 Workshop 从仪表盘升级为像素风动画场景，赋予 Worker 视觉生命力。
@@ -77,7 +86,7 @@
 
 ## Phase 4 — 多人协作与社交互动
 
-> 目标：从单人工具进化为多人社区，成为真正的 Agent Town。
+> 目标：从单人工具进化为多人社区，成为真正的 Agent Town。依赖 Relay 的用户体系和状态缓存实现跨用户交互。
 
 **个人工作室**
 - [ ] 每位用户拥有独立的工作室视图，展示名下所有 Worker 的实时状态

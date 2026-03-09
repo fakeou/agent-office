@@ -1,0 +1,7 @@
+{
+  "name": "@agenttown/core",
+  "version": "0.2.0",
+  "private": true,
+  "main": "src/index.js",
+  "files": ["src"]
+}

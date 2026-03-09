@@ -117,7 +117,11 @@ Open the UI at `http://127.0.0.1:8765`.
 
 ## Authentication
 
-AgentTown uses token-based authentication for remote access. On first start, a random 64-character hex token is generated and saved to `~/.agenttown/token`.
+AgentTown supports two access modes:
+
+**Local mode** (`agenttown start`): LAN requests bypass authentication by default. Non-LAN requests require a local token. On first start, a random 64-character hex token is generated and saved to `~/.agenttown/token`.
+
+**Hosted mode** (`agenttown start --key sk_xxx --relay URL`): Connects to a Relay server for remote access. Authentication is handled by the Relay's user system (API Key bound to your account).
 
 The token is printed in the terminal when the server starts. You can also view it:
 
@@ -131,7 +135,7 @@ Reset the token (invalidates all existing sessions):
 agenttown token reset
 ```
 
-**LAN requests bypass authentication by default** to preserve the Phase 1 local experience. To force authentication for all requests including LAN:
+To force authentication for all requests including LAN:
 
 ```bash
 agenttown start --auth
@@ -143,34 +147,26 @@ Set a custom token instead of the auto-generated one:
 agenttown start --auth-token YOUR_TOKEN_HERE
 ```
 
-## Remote Access (FRP)
+## Remote Access (Relay)
 
-AgentTown does not manage FRP tunnels. You configure `frpc` yourself to expose the local AgentTown port to the public internet.
+AgentTown uses a managed Relay server for remote access. This replaces the previous FRP-based approach with a simpler, integrated solution.
 
-**IMPORTANT: You MUST use HTTPS** when exposing AgentTown to the public internet. The access token is transmitted in cookies and must be protected in transit.
+### Setup
 
-### FRP Configuration Example
+1. Register an account on the AgentTown dashboard
+2. Create an API Key (starts with `sk_`)
+3. Start AgentTown in hosted mode:
 
-Using the `https2http` plugin in `frpc.toml`:
-
-```toml
-[[proxies]]
-name = "agenttown"
-type = "https"
-customDomains = ["agenttown.example.com"]
-
-[proxies.plugin]
-type = "https2http"
-localAddr = "127.0.0.1:8765"
-crtPath = "/path/to/cert.pem"
-keyPath = "/path/to/key.pem"
+```bash
+agenttown start --key sk_xxx --relay http://your-relay-server
 ```
 
-Then access `https://agenttown.example.com` from any browser. You will be prompted for the access token on first visit.
+4. Access your Workshop through the Relay server URL
+
+The Relay handles tunnel establishment, WebSocket proxying, and session state caching automatically.
 
 ### Security Checklist
 
-- Always use HTTPS (via FRP `https2http` plugin, nginx, or Caddy)
 - Keep `~/.agenttown/token` file secure (default permission: `600`)
 - Use `agenttown token reset` periodically or after suspected compromise
 - Use `--auth` flag if you want LAN requests to also require authentication

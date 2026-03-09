@@ -1,0 +1,15 @@
+{
+  "name": "@agenttown/api",
+  "version": "0.2.0",
+  "private": true,
+  "main": "src/index.js",
+  "files": ["src"],
+  "dependencies": {
+    "@agenttown/core": "workspace:*",
+    "better-sqlite3": "^11.0.0",
+    "sql.js": "^1.11.0",
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.0"
+  }
+}
