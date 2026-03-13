@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AgentTown — Remote Access</title>
+    <title>AgentTown</title>
     <link rel="stylesheet" href="/login.css" />
   </head>
   <body class="auth-page">
@@ -16,68 +16,13 @@
           <span class="auth-brand-name">AgentTown</span>
         </div>
 
-        <h1 class="auth-title">Remote Access</h1>
-        <p class="auth-subtitle">Enter the access token printed when the server started, or found at <code style="background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px; font-size:13px;">~/.agenttown/token</code></p>
-
-        <form id="login-form" class="auth-form">
-          <div class="auth-field">
-            <label class="auth-label" for="token-input">Access Token</label>
-            <input class="auth-input" id="token-input" type="password" placeholder="Paste your token here" autocomplete="off" spellcheck="false" required />
-          </div>
-          <button class="auth-btn auth-btn-primary" type="submit" id="login-button">Login</button>
-        </form>
-
-        <div id="login-error" class="auth-error" hidden></div>
+        <h1 class="auth-title">Redirecting</h1>
+        <p class="auth-subtitle">AgentTown now uses the shared account login page.</p>
       </div>
     </div>
 
     <script>
-      (function () {
-        var form = document.getElementById("login-form");
-        var input = document.getElementById("token-input");
-        var button = document.getElementById("login-button");
-        var errorBox = document.getElementById("login-error");
-
-        form.addEventListener("submit", async function (e) {
-          e.preventDefault();
-          errorBox.hidden = true;
-          button.disabled = true;
-          button.textContent = "Verifying...";
-
-          try {
-            var response = await fetch("/api/auth/login", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token: input.value.trim() })
-            });
-            var data = await response.json();
-
-            if (response.ok) {
-              window.location.href = "/";
-              return;
-            }
-
-            if (data.error === "locked") {
-              showError("Account locked. Try again in " + Math.ceil(data.remainingSeconds / 60) + " minute(s).");
-            } else if (data.error === "rate_limited") {
-              showError("Too many attempts. Wait a minute before trying again.");
-            } else {
-              var remaining = data.remaining != null ? data.remaining : "?";
-              showError("Invalid token. " + remaining + " attempt(s) remaining this minute.");
-            }
-          } catch {
-            showError("Connection failed. Is the server running?");
-          } finally {
-            button.disabled = false;
-            button.textContent = "Login";
-          }
-        });
-
-        function showError(msg) {
-          errorBox.textContent = msg;
-          errorBox.hidden = false;
-        }
-      })();
+      window.location.replace("/register.html");
     </script>
   </body>
 </html>

@@ -25,11 +25,8 @@ function defaultTransportForProvider(providerName) {
   return "tmux";
 }
 
-function initialManagedState(providerName) {
-  if (providerName === "codex") {
-    return "idle";
-  }
-  return "working";
+function initialManagedState() {
+  return "idle";
 }
 
 function createPtyManager({ store }) {
@@ -101,13 +98,13 @@ function createPtyManager({ store }) {
     }
   }
 
-  function markRuntimeExit(sessionId, { exitCode = 0, signal = 0, reason = null } = {}) {
+  function markRuntimeExit(sessionId, { exitCode = 0, signal = 0, reason = null, patchOverride = null } = {}) {
     const session = store.getSession(sessionId);
     if (!session) {
       return;
     }
     const provider = getProvider(session.provider);
-    const next = provider.onExit({ session, exitCode, signal });
+    const next = patchOverride || provider.onExit({ session, exitCode, signal });
     store.markExit(sessionId, next);
     store.addEvent(sessionId, "session_exited", {
       meta: {
@@ -422,6 +419,13 @@ function createPtyManager({ store }) {
     if (mapped.session.status === "exited") {
       const runtime = sessions.get(session.sessionId);
       if (runtime && runtime.transport === "tmux") {
+        killSession(runtime.tmuxSession);
+        markRuntimeExit(session.sessionId, {
+          exitCode: 0,
+          signal: 0,
+          reason: "hook_session_end",
+          patchOverride: { state: "idle", status: "exited" }
+        });
         return store.getSession(session.sessionId);
       }
       store.markExit(session.sessionId, { status: "exited", state: "idle", displayState: "idle", displayZone: "idle-zone" });

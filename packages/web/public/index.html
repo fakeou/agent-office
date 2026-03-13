@@ -4,17 +4,81 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AgentTown</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/login.css" />
   </head>
-  <body>
-    <div id="app"></div>
+  <body class="auth-page">
+    <div class="auth-shell">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="auth-brand-mark">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <span class="auth-brand-name">AgentTown</span>
+        </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
-    <script src="/app.js"></script>
+        <h1 class="auth-title">Checking session</h1>
+        <p class="auth-subtitle" id="status-copy">Verifying your account and opening your workshop.</p>
+        <div id="bootstrap-error" class="auth-error" hidden></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const token = localStorage.getItem("agenttown_jwt");
+        const fallbackPath = "/register.html";
+        const statusCopy = document.getElementById("status-copy");
+        const errorBox = document.getElementById("bootstrap-error");
+
+        if (!token) {
+          window.location.replace(fallbackPath);
+          return;
+        }
+
+        boot().catch(function (error) {
+          localStorage.removeItem("agenttown_jwt");
+          localStorage.removeItem("agenttown_user_id");
+          showError(error && error.message ? error.message : "Unable to verify your account right now.");
+          setTimeout(function () {
+            window.location.replace(fallbackPath);
+          }, 1200);
+        });
+
+        async function boot() {
+          const me = await apiFetch("/api/auth/me", token);
+          const userId = me.id || me.userId;
+          if (!userId) {
+            throw new Error("Missing user information.");
+          }
+
+          localStorage.setItem("agenttown_user_id", userId);
+          statusCopy.textContent = "Account verified. Opening workshop...";
+          window.location.replace("/tunnel/" + encodeURIComponent(userId) + "/workshop.html");
+        }
+
+        async function apiFetch(path, bearerToken) {
+          const response = await fetch(path, {
+            headers: {
+              Authorization: "Bearer " + bearerToken,
+              Accept: "application/json"
+            }
+          });
+
+          if (response.status === 401) {
+            throw new Error("Session expired.");
+          }
+
+          if (!response.ok) {
+            throw new Error("Authentication failed.");
+          }
+
+          return response.json();
+        }
+
+        function showError(message) {
+          errorBox.textContent = message;
+          errorBox.hidden = false;
+        }
+      })();
+    </script>
   </body>
 </html>

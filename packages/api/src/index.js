@@ -23,6 +23,27 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
 
   const app = express();
   app.set("trust proxy", true);
+
+  app.use((req, res, next) => {
+    const origin = req.headers.origin || "";
+    const allowLocalAppOrigin = /^http:\/\/(localhost|127\.0\.0\.1):51\d{2}$/.test(origin);
+
+    if (!allowLocalAppOrigin) {
+      return next();
+    }
+
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+
+    if (req.method === "OPTIONS") {
+      return res.status(204).end();
+    }
+
+    next();
+  });
+
   app.use(express.json({ limit: "1mb" }));
 
   // Serve static web assets in dev mode

@@ -461,6 +461,12 @@
   margin-bottom: 8px;
 }
 
+.dash-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .dash-brand {
   display: flex;
   align-items: center;
@@ -498,6 +504,26 @@
   font-size: 13px;
   padding: 6px 14px;
   transition: all 0.2s;
+}
+
+.dash-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 33px;
+  padding: 6px 14px;
+  border: 1px solid var(--dash-border);
+  border-radius: 8px;
+  color: var(--dash-text-muted);
+  text-decoration: none;
+  font-family: var(--auth-font-body);
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.dash-nav-link:hover {
+  border-color: var(--dash-text-muted);
+  color: var(--dash-text);
 }
 
 .dash-logout:hover {

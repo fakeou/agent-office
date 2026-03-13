@@ -7,6 +7,9 @@
   "scripts": {
     "postinstall": "node -e \"const { ensureNodePtySpawnHelper } = require('./packages/runtime/src/ensure-node-pty'); const result = ensureNodePtySpawnHelper(); if (result.changed.length) console.log('Repaired node-pty spawn-helper permissions:', result.changed.join(', '));\"",
     "start": "node packages/cli/src/index.js serve",
+    "app:dev": "pnpm --filter @agenttown/app dev",
+    "app:build": "pnpm --filter @agenttown/app build",
+    "app:preview": "pnpm --filter @agenttown/app preview",
     "daemon": "node packages/cli/src/index.js start",
     "restart": "node packages/cli/src/index.js restart",
     "cli:start": "node packages/cli/src/index.js start",

@@ -17,6 +17,7 @@
   const state = {
     sessions: [],
     serverOnline: false,
+    navOpen: false,
     terminal: null,
     fitAddon: null,
     terminalSocket: null,
@@ -169,10 +170,76 @@
 
   function handleUnauthorized() {
     if (TUNNEL_PREFIX) {
-      window.location.href = "/register.html";
+      localStorage.removeItem("agenttown_jwt");
+      localStorage.removeItem("agenttown_user_id");
+      window.location.href = "/";
     } else {
       window.location.href = "/login.html";
     }
+  }
+
+  function getUserId() {
+    const storedUserId = localStorage.getItem("agenttown_user_id");
+    if (storedUserId) {
+      return storedUserId;
+    }
+    return tunnelMatch ? decodeURIComponent(tunnelMatch[1]) : "";
+  }
+
+  function renderNavDrawer(activeView) {
+    if (!TUNNEL_PREFIX) {
+      return "";
+    }
+
+    return `
+      <div class="nav-drawer ${state.navOpen ? "is-open" : ""}" aria-hidden="${state.navOpen ? "false" : "true"}">
+        <button class="nav-drawer-backdrop" type="button" aria-label="Close menu" data-nav-close></button>
+        <aside class="nav-drawer-panel">
+          <div class="nav-drawer-head">
+            <div>
+              <p class="eyebrow">Navigate</p>
+              <strong>AgentTown</strong>
+            </div>
+            <button class="nav-close-button" type="button" aria-label="Close menu" data-nav-close>&times;</button>
+          </div>
+          <nav class="nav-drawer-links">
+            <a class="nav-link ${activeView === "workshop" ? "is-active" : ""}" href="${TUNNEL_PREFIX}/workshop.html">
+              <span class="nav-link-title">Workshop</span>
+              <span class="nav-link-copy">Live workers and shared terminals</span>
+            </a>
+            <a class="nav-link ${activeView === "api-keys" ? "is-active" : ""}" href="/dashboard.html">
+              <span class="nav-link-title">API Key</span>
+              <span class="nav-link-copy">Create and revoke hosted access keys</span>
+            </a>
+          </nav>
+        </aside>
+      </div>
+    `;
+  }
+
+  function bindNavDrawer() {
+    function syncNavDrawer() {
+      const drawer = document.querySelector(".nav-drawer");
+      if (!drawer) {
+        return;
+      }
+      drawer.classList.toggle("is-open", state.navOpen);
+      drawer.setAttribute("aria-hidden", state.navOpen ? "false" : "true");
+    }
+
+    document.querySelectorAll("[data-nav-toggle]").forEach((element) => {
+      element.addEventListener("click", () => {
+        state.navOpen = true;
+        syncNavDrawer();
+      });
+    });
+
+    document.querySelectorAll("[data-nav-close]").forEach((element) => {
+      element.addEventListener("click", () => {
+        state.navOpen = false;
+        syncNavDrawer();
+      });
+    });
   }
 
   async function api(urlPath, options) {
@@ -364,14 +431,21 @@
 
     app.innerHTML = `
       <div class="page-shell">
+        ${renderNavDrawer("workshop")}
         <header class="topbar">
-          <div class="topbar-brand">
-            <div class="brand-mark">
-              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-            </div>
-            <div class="topbar-text">
-              <p class="eyebrow">AgentTown</p>
-              <h1>Workshop</h1>
+          <div class="topbar-main">
+            ${TUNNEL_PREFIX ? `<button class="menu-button" type="button" data-nav-toggle>
+              <span class="menu-button-lines"></span>
+              <span class="menu-button-label">More</span>
+            </button>` : ""}
+            <div class="topbar-brand">
+              <div class="brand-mark">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+              </div>
+              <div class="topbar-text">
+                <p class="eyebrow">AgentTown</p>
+                <h1>Workshop</h1>
+              </div>
             </div>
           </div>
           <div class="topbar-pills">
@@ -432,6 +506,7 @@
         }
       });
     });
+    bindNavDrawer();
     document.querySelectorAll("[data-session-id]").forEach((element) => {
       element.addEventListener("click", () => {
         location.hash = `#/terminal/${element.dataset.sessionId}`;
@@ -478,8 +553,13 @@
 
     app.innerHTML = `
       <div class="terminal-shell">
+        ${renderNavDrawer("workshop")}
         <header class="terminal-topbar">
           <div class="terminal-meta">
+            ${TUNNEL_PREFIX ? `<button class="menu-button" type="button" data-nav-toggle>
+              <span class="menu-button-lines"></span>
+              <span class="menu-button-label">More</span>
+            </button>` : ""}
             <button class="ghost-button" id="back-button" type="button">\u2190 Workshop</button>
             <div class="terminal-info">
               <p class="eyebrow">Terminal</p>
@@ -521,6 +601,7 @@
     document.querySelector("#back-button").addEventListener("click", () => {
       location.hash = "#/";
     });
+    bindNavDrawer();
 
     // Sidebar toggle for mobile
     const sidebarToggle = document.querySelector("#sidebar-toggle");

@@ -9,48 +9,50 @@ function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
   const app = express();
   app.set("trust proxy", true);
   app.use(express.json({ limit: "1mb" }));
-  app.use(express.static(STATIC_DIR));
 
-  // --- Auth whitelist paths ---
-  const AUTH_WHITELIST = [
+  const AUTH_WHITELIST = new Set([
     "/api/auth/login",
     "/api/auth/check",
     "/api/auth/logout",
     "/login.html",
-    "/login.css",
-    "/styles.css",
-    "/app.js"
-  ];
+    "/register.html",
+    "/login.css"
+  ]);
 
   function isWhitelisted(pathname) {
-    return AUTH_WHITELIST.some((p) => pathname === p || pathname.startsWith("/api/auth/"));
+    if (AUTH_WHITELIST.has(pathname)) {
+      return true;
+    }
+    return pathname.startsWith("/api/auth/");
   }
 
-  // --- Auth middleware ---
-  app.use((req, res, next) => {
-    const pathname = req.path;
-
-    if (isWhitelisted(pathname)) {
-      return next();
-    }
-
+  function isAuthorizedRequest(req) {
     if (!forceAuth && auth.isLanRequest(req)) {
-      return next();
+      return true;
     }
-
     const cookieToken = auth.getTokenFromCookie(req);
-    if (cookieToken && auth.verifyToken(cookieToken)) {
+    return Boolean(cookieToken && auth.verifyToken(cookieToken));
+  }
+
+  function sendWorkshopShell(res) {
+    res.sendFile(path.join(STATIC_DIR, "workshop.html"));
+  }
+
+  app.use((req, res, next) => {
+    if (isWhitelisted(req.path)) {
       return next();
     }
 
-    if (pathname.startsWith("/api/")) {
+    if (isAuthorizedRequest(req)) {
+      return next();
+    }
+
+    if (req.path.startsWith("/api/")) {
       return res.status(401).json({ error: "unauthorized" });
     }
 
     return res.redirect("/login.html");
   });
-
-  // --- Auth endpoints ---
 
   app.post("/api/auth/login", (req, res) => {
     const ip = req.ip || req.connection?.remoteAddress || "";
@@ -84,7 +86,7 @@ function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
     auth.recordAttempt(ip, true);
     const secure = req.protocol === "https" || req.get("x-forwarded-proto") === "https";
     auth.setAuthCookie(res, token, secure);
-    res.json({ ok: true });
+    return res.json({ ok: true });
   });
 
   app.post("/api/auth/logout", (_req, res) => {
@@ -99,7 +101,15 @@ function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
     res.json({ authenticated: authenticated || (!forceAuth && lan), lan, forceAuth });
   });
 
-  // --- Existing API routes ---
+  app.get("/", (_req, res) => {
+    sendWorkshopShell(res);
+  });
+
+  app.get("/index.html", (_req, res) => {
+    sendWorkshopShell(res);
+  });
+
+  app.use(express.static(STATIC_DIR, { index: false }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
@@ -139,21 +149,13 @@ function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
     res.json({ ok: true, sessionId: session.sessionId });
   });
 
-  app.get("*", (req, res) => {
-    if (!forceAuth && auth.isLanRequest(req)) {
-      return res.sendFile(path.join(STATIC_DIR, "index.html"));
-    }
-    const cookieToken = auth.getTokenFromCookie(req);
-    if (cookieToken && auth.verifyToken(cookieToken)) {
-      return res.sendFile(path.join(STATIC_DIR, "index.html"));
-    }
-    return res.redirect("/login.html");
+  app.get("*", (_req, res) => {
+    sendWorkshopShell(res);
   });
 
   const server = http.createServer(app);
   const wss = new WebSocketServer({ noServer: true });
 
-  // --- WebSocket upgrade with auth ---
   server.on("upgrade", (request, socket, head) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
     const pathname = url.pathname;

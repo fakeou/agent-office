@@ -1,4 +1,5 @@
 const { WebSocket } = require("ws");
+const { toSessionSummary } = require("@agenttown/core");
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
@@ -8,6 +9,17 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
   let reconnectDelay = RECONNECT_BASE_MS;
   let stopped = false;
   let authenticated = false;
+  let pendingStatusSummary = [];
+
+  function flushStatusSummary() {
+    if (!authenticated || !ws || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    ws.send(JSON.stringify({
+      type: "status:summary",
+      sessions: pendingStatusSummary
+    }));
+  }
 
   function connect() {
     if (stopped) {
@@ -15,14 +27,12 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
     }
 
     authenticated = false;
-    // Connect without key in URL — auth happens via first message
     const url = `${relayUrl.replace(/^http/, "ws")}/upstream`;
     ws = new WebSocket(url);
 
     ws.on("open", () => {
       reconnectDelay = RECONNECT_BASE_MS;
-      console.log(`[tunnel] connected to relay, authenticating...`);
-      // Send auth as first message instead of URL param
+      console.log("[tunnel] connected to relay, authenticating...");
       ws.send(JSON.stringify({ type: "auth", key }));
     });
 
@@ -30,15 +40,14 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
       try {
         const msg = JSON.parse(String(raw));
 
-        // Handle auth response before processing other messages
         if (msg.type === "auth:ok") {
           authenticated = true;
           console.log(`[tunnel] authenticated with relay: ${relayUrl} (userId=${msg.userId})`);
+          flushStatusSummary();
           return;
         }
         if (msg.type === "auth:error") {
           console.error(`[tunnel] authentication failed: ${msg.error || "invalid key"}`);
-          // Don't reconnect on auth failure
           stopped = true;
           ws.close();
           return;
@@ -54,13 +63,12 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
       }
     });
 
-    ws.on("close", (code, reason) => {
+    ws.on("close", (code) => {
       if (stopped) {
         return;
       }
-      // Don't reconnect on auth rejection
       if (code === 4401) {
-        console.error(`[tunnel] authentication rejected by relay. Not reconnecting.`);
+        console.error("[tunnel] authentication rejected by relay. Not reconnecting.");
         stopped = true;
         return;
       }
@@ -91,7 +99,6 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
     }
     if (msg.type === "ws:close") {
       handleWsClose(msg);
-      return;
     }
   }
 
@@ -110,9 +117,9 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
       const response = await fetch(fetchUrl, fetchOptions);
       const body = await response.text();
       const responseHeaders = {};
-      for (const [k, v] of response.headers) {
-        if (!["transfer-encoding", "connection", "content-encoding"].includes(k.toLowerCase())) {
-          responseHeaders[k] = v;
+      for (const [keyName, value] of response.headers) {
+        if (!["transfer-encoding", "connection", "content-encoding"].includes(keyName.toLowerCase())) {
+          responseHeaders[keyName] = value;
         }
       }
 
@@ -185,15 +192,10 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
   }
 
   function sendStatusSummary(sessions) {
-    sendToRelay({
-      type: "status:summary",
-      sessions: sessions.map((s) => ({
-        sessionId: s.sessionId,
-        provider: s.provider,
-        displayState: s.displayState,
-        title: s.title
-      }))
-    });
+    pendingStatusSummary = sessions
+      .map((session) => toSessionSummary(session))
+      .filter(Boolean);
+    flushStatusSummary();
   }
 
   function stop() {

@@ -208,8 +208,8 @@ async function main() {
         localServerUrl
       });
       console.log(`AgentTown tunnel connecting to relay: ${relayUrl}`);
+      tunnel.sendStatusSummary(store.listSessions());
 
-      // Push status summary on session changes
       store.emitter.on("session:update", () => {
         tunnel.sendStatusSummary(store.listSessions());
       });
@@ -321,6 +321,7 @@ async function main() {
         localServerUrl
       });
       console.log(`AgentTown tunnel connecting to relay: ${relayUrl}`);
+      tunnel.sendStatusSummary(store.listSessions());
 
       store.emitter.on("session:update", () => {
         tunnel.sendStatusSummary(store.listSessions());

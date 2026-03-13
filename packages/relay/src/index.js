@@ -1,3 +1,4 @@
+const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const express = require("express");
@@ -94,14 +95,55 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
 
   const app = express();
   app.set("trust proxy", true);
+
+  // CORS for local dev (Vite dev server on localhost:51xx)
+  app.use((req, res, next) => {
+    const origin = req.headers.origin || "";
+    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+      if (req.method === "OPTIONS") return res.status(204).end();
+    }
+    next();
+  });
+
   app.use(express.json({ limit: "1mb" }));
 
   // Serve static web assets (register.html, login pages, etc.)
+  let staticDir = null;
   try {
     const { STATIC_DIR } = require("@agenttown/web");
+    staticDir = STATIC_DIR;
     app.use(express.static(STATIC_DIR));
   } catch {
     // @agenttown/web not available — skip static file serving
+  }
+
+  function serveTunnelStatic(tunnelPath, res) {
+    if (!staticDir) {
+      res.status(404).end();
+      return;
+    }
+
+    const relativePath = tunnelPath === "/" ? "/workshop.html" : tunnelPath;
+    const normalizedPath = path.posix.normalize(relativePath);
+    const requestedPath = normalizedPath.startsWith("/") ? normalizedPath.slice(1) : normalizedPath;
+    const safePath = requestedPath && requestedPath !== "." ? requestedPath : "workshop.html";
+    const absolutePath = path.resolve(staticDir, safePath);
+    const resolvedStaticDir = path.resolve(staticDir);
+
+    if (!absolutePath.startsWith(resolvedStaticDir + path.sep) && absolutePath !== path.join(resolvedStaticDir, "workshop.html")) {
+      res.status(403).end();
+      return;
+    }
+
+    const targetPath = fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile()
+      ? absolutePath
+      : path.join(resolvedStaticDir, "workshop.html");
+
+    res.sendFile(targetPath);
   }
 
   // Health
@@ -154,17 +196,25 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
     next();
   }
 
-  // Proxy HTTP requests to user's tunnel
-  app.all("/tunnel/:userId/*", tunnelAuthMiddleware, (req, res) => {
+  // Proxy HTTP requests to user's tunnel. Static workshop shell/assets are served by Relay.
+  app.all("/tunnel/:userId/*", (req, res) => {
     const { userId } = req.params;
-    if (!upstream.isOnline(userId)) {
-      res.status(502).json({ error: "tunnel_offline" });
+    const tunnelPath = req.originalUrl.replace(`/tunnel/${userId}`, "") || "/";
+
+    if ((req.method === "GET" || req.method === "HEAD") && !tunnelPath.startsWith("/api/") && !tunnelPath.startsWith("/ws/")) {
+      serveTunnelStatic(tunnelPath, res);
       return;
     }
-    // Rewrite path: /tunnel/:userId/api/sessions -> /api/sessions
-    const tunnelPath = req.originalUrl.replace(`/tunnel/${userId}`, "") || "/";
-    req.originalUrl = tunnelPath;
-    proxy.handleHttpProxy(req, res, userId);
+
+    tunnelAuthMiddleware(req, res, () => {
+      if (!upstream.isOnline(userId)) {
+        res.status(502).json({ error: "tunnel_offline" });
+        return;
+      }
+      // Rewrite path: /tunnel/:userId/api/sessions -> /api/sessions
+      req.originalUrl = tunnelPath;
+      proxy.handleHttpProxy(req, res, userId);
+    });
   });
 
   const server = http.createServer(app);

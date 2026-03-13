@@ -5,6 +5,7 @@ const { CodexProvider } = require("./providers/codex");
 const { GenericProvider } = require("./providers/generic");
 const { BaseProvider } = require("./providers/base");
 const { DISPLAY_STATES, DISPLAY_ZONES, displayZoneFor } = require("./state");
+const { CONTRACT_VERSION, toPublicSession, toSessionSummary } = require("./session-contract");
 const {
   DEFAULT_HOST,
   DEFAULT_LAN_HOST,
@@ -24,6 +25,9 @@ module.exports = {
   DISPLAY_STATES,
   DISPLAY_ZONES,
   displayZoneFor,
+  CONTRACT_VERSION,
+  toPublicSession,
+  toSessionSummary,
   DEFAULT_HOST,
   DEFAULT_LAN_HOST,
   DEFAULT_PORT,
