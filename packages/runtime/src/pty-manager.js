@@ -60,14 +60,28 @@ function createPtyManager({ store }) {
     if (!session) {
       return;
     }
-    if (session.transport === "tmux" && session.status !== "exited" && session.meta && session.meta.tmuxSession) {
+    const terminalBacked = session.transport === "tmux" && session.meta && session.meta.tmuxSession;
+    const terminalClosed = ["completed", "exited"].includes(session.status);
+    if (terminalBacked && !terminalClosed) {
       persistSessionRecord(session);
     }
-    if (session.status === "exited") {
+    if (terminalBacked && terminalClosed) {
       removeSessionRecord(session.sessionId);
     }
-    broadcastEvent({ type: "session:update", session });
+    broadcastEvent({
+      type: "session:update",
+      session: store.getSessionSummary(session.sessionId)
+    });
     broadcastTerminal(session.sessionId, { type: "session:update", session });
+  });
+
+  store.emitter.on("session:remove", (payload) => {
+    if (!payload || !payload.sessionId) {
+      return;
+    }
+    removeSessionRecord(payload.sessionId);
+    broadcastEvent({ type: "session:remove", sessionId: payload.sessionId });
+    broadcastTerminal(payload.sessionId, { type: "session:remove", sessionId: payload.sessionId });
   });
 
   function applyProviderReconcile(session, result) {
@@ -103,6 +117,11 @@ function createPtyManager({ store }) {
     if (!session) {
       return;
     }
+    if (["completed", "exited"].includes(session.status)) {
+      sessions.delete(sessionId);
+      store.removeSession(sessionId);
+      return;
+    }
     const provider = getProvider(session.provider);
     const next = patchOverride || provider.onExit({ session, exitCode, signal });
     store.markExit(sessionId, next);
@@ -116,13 +135,17 @@ function createPtyManager({ store }) {
     });
     broadcastTerminal(sessionId, { type: "terminal:exit", exitCode, signal });
     sessions.delete(sessionId);
+    const latest = store.getSession(sessionId);
+    if (latest && ["completed", "exited"].includes(latest.status)) {
+      store.removeSession(sessionId);
+    }
   }
 
   function createPtyManagedSession({ sessionId, providerName, title, command, cwd }) {
     const provider = getProvider(providerName);
     const shell = process.env.SHELL || "/bin/zsh";
     const proc = pty.spawn(shell, ["-lc", command], {
-      name: "xterm-color",
+      name: "xterm-256color",
       cwd,
       env: process.env,
       cols: 120,
@@ -296,10 +319,10 @@ function createPtyManager({ store }) {
     return restored;
   }
 
-  setInterval(() => {
+  setInterval(async () => {
     const currentSessions = store.listSessions();
     for (const session of currentSessions) {
-      if (session.status === "exited") {
+      if (["completed", "exited"].includes(session.status)) {
         continue;
       }
 
@@ -326,7 +349,7 @@ function createPtyManager({ store }) {
           }
         }
 
-        const screen = capturePane(runtime.tmuxSession);
+        const screen = await capturePane(runtime.tmuxSession);
         const nextState = runtime.provider.classifyOutput(screen, store.getSession(session.sessionId));
         if (nextState && nextState !== session.displayState) {
           store.setSessionState(session.sessionId, nextState, { status: "running" });
@@ -435,7 +458,10 @@ function createPtyManager({ store }) {
 
   function registerEventsSocket(ws) {
     eventsClients.add(ws);
-    ws.send(JSON.stringify({ type: "sessions:snapshot", sessions: store.listSessions() }));
+    ws.send(JSON.stringify({
+      type: "sessions:snapshot",
+      sessions: store.listSessionSummaries()
+    }));
     ws.on("close", () => {
       eventsClients.delete(ws);
     });
@@ -457,13 +483,19 @@ function createPtyManager({ store }) {
     }
 
     let attachedClient = null;
-    if (entry && entry.transport === "tmux") {
+    let tmuxStreamStarted = false;
+
+    async function startTmuxStream(cols, rows) {
+      if (tmuxStreamStarted || !entry || entry.transport !== "tmux") {
+        return;
+      }
+      tmuxStreamStarted = true;
       try {
-        const snapshot = capturePane(entry.tmuxSession);
+        const snapshot = await capturePane(entry.tmuxSession);
         if (snapshot && ws.readyState === 1) {
           ws.send(JSON.stringify({ type: "terminal:data", data: `${snapshot}\r\n` }));
         }
-        attachedClient = attachClient(entry.tmuxSession, { cwd: entry.cwd });
+        attachedClient = attachClient(entry.tmuxSession, { cwd: entry.cwd, cols, rows });
         attachedClient.onData((chunk) => {
           if (ws.readyState === 1) {
             ws.send(JSON.stringify({ type: "terminal:data", data: chunk }));
@@ -479,7 +511,12 @@ function createPtyManager({ store }) {
       }
     }
 
-    ws.on("message", (raw) => {
+    // For non-tmux transports that had immediate setup, keep original behavior
+    if (entry && entry.transport === "pty") {
+      // PTY sessions stream via broadcastTerminal, no per-client attach needed
+    }
+
+    ws.on("message", async (raw) => {
       try {
         const message = JSON.parse(String(raw));
         const runtime = sessions.get(sessionId);
@@ -495,10 +532,15 @@ function createPtyManager({ store }) {
           return;
         }
         if (message.type === "resize") {
+          const cols = Number(message.cols || 120);
+          const rows = Number(message.rows || 32);
           if (runtime.transport === "pty") {
-            runtime.pty.resize(Number(message.cols || 120), Number(message.rows || 32));
+            runtime.pty.resize(cols, rows);
+          } else if (!tmuxStreamStarted) {
+            // First resize from client — start tmux stream at the correct size
+            await startTmuxStream(cols, rows);
           } else if (attachedClient) {
-            attachedClient.resize(Number(message.cols || 120), Number(message.rows || 32));
+            attachedClient.resize(cols, rows);
           }
         }
       } catch (error) {
@@ -508,6 +550,14 @@ function createPtyManager({ store }) {
 
     ws.on("close", () => {
       if (attachedClient) {
+        // Kill the linked web-view tmux session first, then the PTY process
+        if (attachedClient.webTmuxSession) {
+          try {
+            killSession(attachedClient.webTmuxSession);
+          } catch {
+            // Linked session may already be gone
+          }
+        }
         try {
           attachedClient.kill();
         } catch {

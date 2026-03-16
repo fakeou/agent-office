@@ -316,6 +316,23 @@
     state.fitAddon = new window.FitAddon.FitAddon();
     state.terminal.loadAddon(state.fitAddon);
     state.terminal.open(host);
+
+    // Unicode11: fix CJK wide character alignment
+    if (window.Unicode11Addon) {
+      var unicode11 = new window.Unicode11Addon.Unicode11Addon();
+      state.terminal.loadAddon(unicode11);
+      state.terminal.unicode.activeVersion = "11";
+    }
+
+    // WebGL renderer: sharper text, better performance on high-DPI screens
+    if (window.WebglAddon) {
+      try {
+        state.terminal.loadAddon(new window.WebglAddon.WebglAddon());
+      } catch (e) {
+        // WebGL not available, fall back to default canvas renderer
+      }
+    }
+
     state.fitAddon.fit();
 
     openTerminalSocket(sessionId);

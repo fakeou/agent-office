@@ -1,6 +1,6 @@
 # AgentTown
 
-AgentTown is a local-first AI workshop supervisor built with Node.js. It visualizes terminal coding agents as workers in a four-state workshop and provides a full-screen terminal handoff view powered by WebSocket and xterm.js. The intended first-stage workflow is: install or one-shot run the local daemon, start it with `agenttown start`, then launch shared Claude or Codex workers with `agenttown claude` or `agenttown codex`.
+AgentTown is a local-first AI workshop supervisor built with Node.js. It visualizes terminal coding agents as workers in a four-state workshop and provides a full-screen terminal handoff view powered by WebSocket and xterm.js. The intended first-stage workflow is: install it, start the local service with `agenttown start`, then launch shared Claude or Codex workers with `agenttown claude` or `agenttown codex`.
 
 ## Current Stack
 
@@ -45,13 +45,13 @@ agenttown start
 
 On macOS, AgentTown automatically repairs `node-pty`'s bundled `spawn-helper` execute bit during `pnpm install` and again when the server starts, because some local package extractions can leave that helper non-executable and break managed PTY launch with `posix_spawnp failed`.
 
-Start the local LAN-accessible daemon:
+Start the local LAN-accessible service:
 
 ```bash
 agenttown start
 ```
 
-`agenttown start` and `agenttown restart` both try to restore previously running AgentTown tmux workers from the local registry under `~/.agenttown/sessions`.
+`agenttown start` restores previously running AgentTown tmux workers from the local registry under `~/.agenttown/sessions`.
 
 Install Claude hooks during startup preflight if you want Claude state to flow into AgentTown automatically:
 
@@ -100,11 +100,10 @@ agenttown cleanup
 pnpm cleanup
 ```
 
-Restart the daemon and re-run the same restore pass:
+Restart the local service and re-run the same restore pass:
 
 ```bash
-agenttown restart
-pnpm restart
+pnpm start
 ```
 
 Print a Claude hooks config snippet:
@@ -177,7 +176,7 @@ The workshop homepage now exposes two one-click launch actions for local tmux wo
 - `Launch Claude`
 - `Launch Codex`
 
-Those web actions default to `tmux` transport, use the daemon working directory, and launch `claude` or `codex` directly. Use the CLI when you need a custom title, working directory, or command.
+Those web actions default to `tmux` transport, use the local service working directory, and launch `claude` or `codex` directly. Use the CLI when you need a custom title, working directory, or command.
 
 ## Terminal View
 
@@ -230,8 +229,8 @@ Then copy the generated JSON into your Claude Code hooks settings. Once hooks ar
 - `tmux` is the default managed transport for Claude and Codex because it preserves the local terminal as the primary operator surface while allowing remote web attach.
 - Hook-only Claude workers can update workshop state without owning a terminal; launch Claude through `agenttown claude` when you want a clickable shared terminal session.
 - `start` performs local preflight checks for `tmux`, `claude`, `codex`, and Claude hook configuration before serving the workshop.
-- `start` and `restart` restore previously running tmux-backed AgentTown workers from the local session registry before serving the workshop.
-- `cleanup` only removes tmux sessions whose names start with AgentTown's own `agenttown_` prefix, and the running daemon reconciles any now-missing tmux workers out of the live workshop.
+- `start` restores previously running tmux-backed AgentTown workers from the local session registry before serving the workshop.
+- `cleanup` only removes tmux sessions whose names start with AgentTown's own `agenttown_` prefix, and the running service reconciles any now-missing tmux workers out of the live workshop.
 - Generic and future providers remain extensible through provider-specific runtime events or text fallback when no structured protocol exists.
 - tmux/PTY sessions that have ended are removed from the main workshop view once they transition to `completed` or `exited`, so they do not linger as fake active workers.
 - Web-launched tmux workers stay attachable from the local machine through `agenttown attach <sessionId>` or the `Local Attach` command shown in the terminal view.

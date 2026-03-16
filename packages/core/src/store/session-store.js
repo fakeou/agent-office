@@ -3,7 +3,7 @@ const os = require("node:os");
 const crypto = require("node:crypto");
 const { LOG_LIMIT } = require("../config");
 const { displayZoneFor } = require("../state");
-const { toPublicSession } = require("../session-contract");
+const { toPublicSession, toSessionSummary } = require("../session-contract");
 
 function isoNow() {
   return new Date().toISOString();
@@ -148,7 +148,8 @@ function createSessionStore() {
     session.logs = session.logs.slice(-LOG_LIMIT);
     session.lastOutputAt = isoNow();
     session.updatedAt = session.lastOutputAt;
-    emitUpdate(sessionId);
+    // Terminal output does not change session state — skip session:update broadcast.
+    // Terminal data is forwarded directly by pty-manager via broadcastTerminal.
     return session;
   }
 
@@ -180,10 +181,35 @@ function createSessionStore() {
     return session ? cloneSession(session) : null;
   }
 
+  function getSessionSummary(sessionId) {
+    const session = sessions.get(sessionId);
+    return session ? toSessionSummary(session) : null;
+  }
+
   function listSessions() {
     return [...sessions.values()]
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       .map(cloneSession);
+  }
+
+  function listSessionSummaries() {
+    return [...sessions.values()]
+      .filter((session) => !["completed", "exited"].includes(session.status))
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .map((session) => toSessionSummary(session));
+  }
+
+  function removeSession(sessionId) {
+    const session = sessions.get(sessionId);
+    if (!session) {
+      return false;
+    }
+    sessions.delete(sessionId);
+    emitter.emit("session:remove", {
+      sessionId,
+      session: cloneSession(session)
+    });
+    return true;
   }
 
   return {
@@ -194,7 +220,10 @@ function createSessionStore() {
     appendOutput,
     markExit,
     getSession,
-    listSessions
+    getSessionSummary,
+    listSessions,
+    listSessionSummaries,
+    removeSession
   };
 }
 

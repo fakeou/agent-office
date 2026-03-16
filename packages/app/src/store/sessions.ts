@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api } from "../lib/api";
 import { RELAY_BASE } from "../lib/config";
+import { getRelayWsQuery } from "../lib/relay-ws";
 import { useAuthStore } from "./auth";
 
 /* ------------------------------------------------------------------ */
@@ -34,12 +35,14 @@ interface SessionsState {
 
   fetchSessions: () => Promise<void>;
   upsertSession: (s: Session) => void;
+  removeSession: (sessionId: string) => void;
   startWs: () => void;
   stopWs: () => void;
 }
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let connectPromise: Promise<void> | null = null;
 let reconnectDelay = 1000;
 const MAX_DELAY = 30_000;
 
@@ -72,56 +75,74 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     });
   },
 
+  removeSession: (sessionId: string) => {
+    set((prev) => ({ sessions: prev.sessions.filter((session) => session.sessionId !== sessionId) }));
+  },
+
   startWs: () => {
-    if (ws) return;
+    if (ws || connectPromise) return;
 
     const { token, userId } = useAuthStore.getState();
     if (!userId) return;
 
-    const wsBase = RELAY_BASE.replace(/^http/, "ws");
-    const url = token
-      ? `${wsBase}/tunnel/${userId}/ws/events?token=${encodeURIComponent(token)}`
-      : `${wsBase}/tunnel/${userId}/ws/events`;
-
-    const socket = new WebSocket(url);
-    ws = socket;
-
-    socket.onopen = () => {
-      set({ connected: true, error: null });
-      reconnectDelay = 1000;
-    };
-
-    socket.onmessage = (ev) => {
+    connectPromise = (async () => {
       try {
-        const msg = JSON.parse(ev.data);
-        if (msg.type === "sessions:snapshot" && Array.isArray(msg.sessions)) {
-          set({ sessions: msg.sessions });
-        } else if (msg.type === "session:update" && msg.session) {
-          get().upsertSession(msg.session);
-        }
-      } catch { /* ignore malformed */ }
-    };
+        const wsBase = RELAY_BASE.replace(/^http/, "ws");
+        const authQuery = await getRelayWsQuery(token);
+        const url = authQuery
+          ? `${wsBase}/tunnel/${userId}/ws/events?${authQuery}`
+          : `${wsBase}/tunnel/${userId}/ws/events`;
 
-    socket.onclose = (ev) => {
-      ws = null;
-      set({ connected: false });
+        const socket = new WebSocket(url);
+        ws = socket;
 
-      if (ev.code === 4401 || ev.reason === "unauthorized") {
-        useAuthStore.getState().clearAuth();
-        return;
+        socket.onopen = () => {
+          set({ connected: true, error: null });
+          reconnectDelay = 1000;
+        };
+
+        socket.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === "sessions:snapshot" && Array.isArray(msg.sessions)) {
+              set({ sessions: msg.sessions });
+            } else if (msg.type === "session:update" && msg.session) {
+              if (msg.session.visibleInWorkshop === false || ["completed", "exited"].includes(msg.session.status)) {
+                get().removeSession(msg.session.sessionId);
+              } else {
+                get().upsertSession(msg.session);
+              }
+            } else if (msg.type === "session:remove" && msg.sessionId) {
+              get().removeSession(msg.sessionId);
+            }
+          } catch { /* ignore malformed */ }
+        };
+
+        socket.onclose = (ev) => {
+          ws = null;
+          set({ connected: false });
+
+          if (ev.code === 4401 || ev.reason === "unauthorized" || ev.reason === "token_expired") {
+            useAuthStore.getState().clearAuth();
+            return;
+          }
+
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            get().startWs();
+          }, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY);
+        };
+
+        socket.onerror = () => {
+          set({ error: "ws_error" });
+        };
+      } catch (error) {
+        set({ error: error instanceof Error ? error.message : "ws_auth_failed", connected: false });
+      } finally {
+        connectPromise = null;
       }
-
-      // exponential backoff reconnect
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        get().startWs();
-      }, reconnectDelay);
-      reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY);
-    };
-
-    socket.onerror = () => {
-      set({ error: "ws_error" });
-    };
+    })();
   },
 
   stopWs: () => {
@@ -133,6 +154,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       ws.close();
       ws = null;
     }
+    connectPromise = null;
     set({ connected: false });
   }
 }));

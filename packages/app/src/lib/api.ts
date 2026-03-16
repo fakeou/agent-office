@@ -22,13 +22,19 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     headers
   });
 
-  if (response.status === 401) {
-    clearAuth();
-    throw new Error("unauthorized");
-  }
-
   const isJson = response.headers.get("content-type")?.includes("application/json");
   const payload = isJson ? await response.json() : await response.text();
+
+  if (response.status === 401) {
+    clearAuth();
+    const message =
+      typeof payload === "string"
+        ? payload || "unauthorized"
+        : typeof payload?.error === "string"
+          ? payload.error
+          : "unauthorized";
+    throw new Error(message);
+  }
 
   if (!response.ok) {
     const message =

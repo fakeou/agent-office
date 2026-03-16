@@ -7,7 +7,6 @@ const { createAppServer } = require("./server");
 const {
   createSessionStore,
   printClaudeHooksConfig,
-  DEFAULT_HOST,
   DEFAULT_LAN_HOST,
   DEFAULT_PORT,
   DEFAULT_SERVER_URL
@@ -34,7 +33,7 @@ const DEFAULT_RELAY_URL = "http://localhost:9000";
 
 function parseArgs(argv) {
   const args = argv.slice(2);
-  const action = args.shift() || "serve";
+  const action = args.shift() || "start";
   let subaction = null;
   const options = {};
   const commandParts = [];
@@ -113,7 +112,7 @@ async function resolveAttachTarget({ target, server }) {
       }
     }
   } catch {
-    // Ignore daemon lookup failures and fall back to local registry only.
+    // Ignore server lookup failures and fall back to local registry only.
   }
 
   return null;
@@ -148,7 +147,7 @@ async function main() {
     throw new Error(`unknown token subcommand: ${subaction}`);
   }
 
-  if (action === "start" || action === "restart") {
+  if (action === "start") {
     const nodePtySetup = ensureNodePtySpawnHelper();
     if (nodePtySetup.changed.length > 0) {
       console.log(`AgentTown repaired node-pty spawn-helper permissions for ${nodePtySetup.changed.join(", ")}`);
@@ -208,11 +207,19 @@ async function main() {
         localServerUrl
       });
       console.log(`AgentTown tunnel connecting to relay: ${relayUrl}`);
-      tunnel.sendStatusSummary(store.listSessions());
+      tunnel.sendStatusSummary(store.listSessionSummaries());
 
-      store.emitter.on("session:update", () => {
-        tunnel.sendStatusSummary(store.listSessions());
-      });
+      let statusDebounceTimer = null;
+      function scheduleStatusSummary() {
+        if (statusDebounceTimer) return;
+        statusDebounceTimer = setTimeout(() => {
+          statusDebounceTimer = null;
+          tunnel.sendStatusSummary(store.listSessionSummaries());
+        }, 500);
+      }
+
+      store.emitter.on("session:update", scheduleStatusSummary);
+      store.emitter.on("session:remove", scheduleStatusSummary);
     }
 
     return;
@@ -289,45 +296,6 @@ async function main() {
       removeSessionRecord(record.sessionId);
     }
     console.log(`Cleanup complete. Removed ${sessions.length} AgentTown session(s).`);
-    return;
-  }
-
-  if (action === "serve") {
-    const nodePtySetup = ensureNodePtySpawnHelper();
-    if (nodePtySetup.changed.length > 0) {
-      console.log(`AgentTown repaired node-pty spawn-helper permissions for ${nodePtySetup.changed.join(", ")}`);
-    }
-    const store = createSessionStore();
-    const ptyManager = createPtyManager({ store });
-    const host = options.host || DEFAULT_HOST;
-    const port = Number(options.port || DEFAULT_PORT);
-    const forceAuth = !!options.auth;
-
-    if (options["auth-token"]) {
-      auth.setToken(String(options["auth-token"]));
-    }
-    const token = auth.loadOrCreateToken();
-
-    createAppServer({ host, port, store, ptyManager, forceAuth });
-    printAuthInfo(forceAuth, token);
-
-    // --- Hosted mode: connect tunnel to relay ---
-    if (options.key) {
-      const relayUrl = options.relay || DEFAULT_RELAY_URL;
-      const localServerUrl = `http://127.0.0.1:${port}`;
-      const tunnel = createTunnelClient({
-        key: String(options.key),
-        relayUrl,
-        localServerUrl
-      });
-      console.log(`AgentTown tunnel connecting to relay: ${relayUrl}`);
-      tunnel.sendStatusSummary(store.listSessions());
-
-      store.emitter.on("session:update", () => {
-        tunnel.sendStatusSummary(store.listSessions());
-      });
-    }
-
     return;
   }
 

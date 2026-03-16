@@ -1,4 +1,5 @@
-const { spawnSync } = require("node:child_process");
+const { spawnSync, spawn } = require("node:child_process");
+const crypto = require("node:crypto");
 const pty = require("node-pty");
 
 const AGENTTOWN_TMUX_PREFIX = "agenttown_";
@@ -103,21 +104,34 @@ function describePane(sessionName) {
 }
 
 function capturePane(sessionName) {
-  const result = runTmux(["capture-pane", "-p", "-e", "-J", "-t", `${sessionName}:0.0`]);
-  if (result.status !== 0) {
-    return "";
-  }
-  return result.stdout || "";
+  return new Promise((resolve) => {
+    const proc = spawn(tmuxPath(), ["capture-pane", "-p", "-e", "-J", "-t", `${sessionName}:0.0`]);
+    let stdout = "";
+    proc.stdout.on("data", (chunk) => { stdout += chunk; });
+    proc.on("close", (code) => { resolve(code === 0 ? stdout : ""); });
+    proc.on("error", () => { resolve(""); });
+  });
 }
 
 function attachClient(sessionName, { cwd, cols = 120, rows = 32 } = {}) {
-  return pty.spawn(tmuxPath(), ["attach-session", "-t", sessionName], {
-    name: "xterm-color",
+  // Create a linked session that shares the same window group but with status bar
+  // disabled, so the tmux chrome does not leak into the xterm.js stream.
+  const webSession = `${sessionName}_wv_${crypto.randomBytes(3).toString("hex")}`;
+
+  const proc = pty.spawn(tmuxPath(), [
+    "new-session", "-t", sessionName, "-s", webSession,
+    ";", "set-option", "status", "off"
+  ], {
+    name: "xterm-256color",
     cwd: cwd || process.cwd(),
     env: process.env,
     cols,
     rows
   });
+
+  // Expose the linked session name so callers can clean it up on disconnect.
+  proc.webTmuxSession = webSession;
+  return proc;
 }
 
 function localAttachCommand(sessionName) {

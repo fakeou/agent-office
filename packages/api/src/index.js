@@ -7,9 +7,11 @@ const { createSocialService } = require("./social");
 const { createEmailService } = require("./email");
 const { createRateLimiter, rateLimitMiddleware } = require("./rate-limit");
 
-async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecret } = {}) {
+async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecret, relayUrl } = {}) {
   await initDb();
   const resolvedSecret = jwtSecret || process.env.AGENTTOWN_JWT_SECRET || crypto.randomBytes(32).toString("hex");
+  const resolvedRelayUrl = relayUrl || process.env.AGENTTOWN_RELAY_URL || "http://127.0.0.1:9000";
+  const internalSecret = process.env.AGENTTOWN_INTERNAL_SECRET || resolvedSecret || "";
   const db = createDb({ dbPath });
   const users = createUserService({ db, jwtSecret: resolvedSecret });
   const keys = createKeyService({ db });
@@ -46,6 +48,25 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
 
   app.use(express.json({ limit: "1mb" }));
 
+  async function notifyRelayDisconnect(payload) {
+    if (!resolvedRelayUrl) {
+      return;
+    }
+
+    try {
+      await fetch(`${resolvedRelayUrl}/api/internal/disconnect`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(internalSecret ? { "x-agenttown-internal-secret": internalSecret } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch {
+      // Best-effort only: auth revocation still lands in the API even if relay is unavailable.
+    }
+  }
+
   // Serve static web assets in dev mode
   try {
     const webPublicDir = require("node:path").join(__dirname, "../../web/public");
@@ -61,11 +82,12 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
     if (!token) {
       return res.status(401).json({ error: "missing_token" });
     }
-    const userId = users.verifyJwt(token);
-    if (!userId) {
-      return res.status(401).json({ error: "invalid_token" });
+    const verification = users.verifyJwtDetailed(token);
+    if (!verification.userId) {
+      return res.status(401).json({ error: verification.error || "invalid_token" });
     }
-    req.userId = userId;
+    req.userId = verification.userId;
+    req.sessionId = verification.sessionId || null;
     next();
   }
 
@@ -140,9 +162,26 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
 
   // --- Token revocation ---
 
+  app.post("/api/auth/logout", requireAuth, async (req, res) => {
+    if (req.sessionId) {
+      users.revokeSession(req.sessionId);
+      await notifyRelayDisconnect({
+        userId: req.userId,
+        sessionId: req.sessionId,
+        reason: "token_revoked"
+      });
+    } else {
+      users.revokeAllTokens(req.userId);
+      await notifyRelayDisconnect({ userId: req.userId, reason: "token_revoked" });
+    }
+    res.json({ ok: true });
+  });
+
   app.post("/api/auth/revoke-all", requireAuth, (req, res) => {
     users.revokeAllTokens(req.userId);
-    const newToken = users.signTokenAfterRevocation(req.userId);
+    const sessionId = users.createSession(req.userId);
+    const newToken = users.signTokenAfterRevocation(req.userId, sessionId);
+    void notifyRelayDisconnect({ userId: req.userId, reason: "token_revoked" });
     res.json({ token: newToken });
   });
 
@@ -166,6 +205,7 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
     if (!deleted) {
       return res.status(404).json({ error: "key_not_found" });
     }
+    void notifyRelayDisconnect({ userId: req.userId, keyId: deleted.keyId, reason: "key_revoked" });
     res.json({ ok: true });
   });
 
@@ -183,13 +223,13 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
 
   app.post("/api/internal/verify-key", rateLimitMiddleware(keyVerifyLimiter), (req, res) => {
     const apiKey = req.body.key;
-    const userId = keys.verify(apiKey);
-    if (!userId) {
+    const verification = keys.verify(apiKey);
+    if (!verification?.userId) {
       req.rateLimiter.record(false);
       return res.status(401).json({ error: "invalid_key" });
     }
     req.rateLimiter.record(true);
-    res.json({ userId });
+    res.json({ userId: verification.userId, keyId: verification.keyId || null });
   });
 
   app.post("/api/internal/verify-jwt", rateLimitMiddleware(keyVerifyLimiter), (req, res) => {
@@ -197,13 +237,13 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
     if (!token) {
       return res.status(400).json({ error: "missing_token" });
     }
-    const userId = users.verifyJwt(token);
-    if (!userId) {
+    const verification = users.verifyJwtDetailed(token);
+    if (!verification.userId) {
       req.rateLimiter.record(false);
-      return res.status(401).json({ error: "invalid_token" });
+      return res.status(401).json({ error: verification.error || "invalid_token" });
     }
     req.rateLimiter.record(true);
-    res.json({ userId });
+    res.json({ userId: verification.userId, sessionId: verification.sessionId || null });
   });
 
   const server = app.listen(port, host, () => {

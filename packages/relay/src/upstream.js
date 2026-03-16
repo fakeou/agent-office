@@ -39,7 +39,9 @@ function createUpstreamManager({ verifyKey }) {
         return;
       }
 
-      const userId = await verifyKey(msg.key);
+      const verified = await verifyKey(msg.key);
+      const userId = typeof verified === "string" ? verified : verified?.userId;
+      const keyId = typeof verified === "string" ? null : verified?.keyId || null;
       if (!userId) {
         ws.send(JSON.stringify({ type: "auth:error", error: "invalid_key" }));
         ws.close(4401, "invalid_key");
@@ -57,6 +59,7 @@ function createUpstreamManager({ verifyKey }) {
       const tunnel = {
         ws,
         userId,
+        keyId,
         connectedAt: new Date().toISOString(),
         lastPingAt: Date.now(),
         pendingRequests: new Map(),
@@ -65,8 +68,20 @@ function createUpstreamManager({ verifyKey }) {
       tunnels.set(userId, tunnel);
 
       ws.on("message", (raw) => {
+        const str = String(raw);
+        // Fast path: WS data forwarding uses "W:${connId}:${data}" prefix (no JSON parse)
+        if (str.startsWith("W:")) {
+          const connId = str.slice(2, 16);
+          const data = str.slice(17);
+          const wsEntry = tunnel.pendingWs.get(connId);
+          if (wsEntry && wsEntry.readyState === 1) {
+            wsEntry.send(data);
+          }
+          return;
+        }
+        // Control messages remain JSON
         try {
-          const msg = JSON.parse(String(raw));
+          const msg = JSON.parse(str);
           handleUpstreamMessage(tunnel, msg);
         } catch {
           // Ignore malformed messages.
@@ -77,6 +92,18 @@ function createUpstreamManager({ verifyKey }) {
         if (tunnels.get(userId) === tunnel) {
           tunnels.delete(userId);
         }
+        // Immediately fail all in-flight HTTP requests instead of letting them time out.
+        for (const pending of tunnel.pendingRequests.values()) {
+          pending.resolve(null);
+        }
+        tunnel.pendingRequests.clear();
+        // Close browser WebSocket connections tied to this tunnel.
+        for (const browserWs of tunnel.pendingWs.values()) {
+          if (browserWs.readyState === 1) {
+            browserWs.close(4502, "tunnel_offline");
+          }
+        }
+        tunnel.pendingWs.clear();
       });
 
       ws.on("pong", () => {
@@ -87,19 +114,26 @@ function createUpstreamManager({ verifyKey }) {
     });
   }
 
+  function disconnectTunnels({ userId = null, keyId = null, reason = "key_revoked" } = {}) {
+    for (const [tunnelUserId, tunnel] of tunnels) {
+      const matchesUser = userId ? tunnelUserId === userId : true;
+      const matchesKey = keyId ? tunnel.keyId === keyId : true;
+      if (!matchesUser || !matchesKey) {
+        continue;
+      }
+      if (tunnel.ws.readyState === 1) {
+        tunnel.ws.close(4401, reason);
+      }
+      tunnels.delete(tunnelUserId);
+    }
+  }
+
   function handleUpstreamMessage(tunnel, msg) {
     if (msg.type === "http:response") {
       const pending = tunnel.pendingRequests.get(msg.reqId);
       if (pending) {
         tunnel.pendingRequests.delete(msg.reqId);
         pending.resolve(msg);
-      }
-      return;
-    }
-    if (msg.type === "ws:message") {
-      const wsEntry = tunnel.pendingWs.get(msg.connId);
-      if (wsEntry && wsEntry.readyState === 1) {
-        wsEntry.send(msg.data);
       }
       return;
     }
@@ -167,11 +201,8 @@ function createUpstreamManager({ verifyKey }) {
 
     browserWs.on("message", (raw) => {
       if (tunnel.ws.readyState === 1) {
-        tunnel.ws.send(JSON.stringify({
-          type: "ws:message",
-          connId,
-          data: String(raw)
-        }));
+        // Fast path: prefix with connId, no JSON wrapping
+        tunnel.ws.send(`W:${connId}:${String(raw)}`);
       }
     });
 
@@ -228,6 +259,7 @@ function createUpstreamManager({ verifyKey }) {
     openWsConnection,
     isOnline,
     getStatusSummary,
+    disconnectTunnels,
     get tunnelCount() {
       return tunnels.size;
     }

@@ -38,7 +38,20 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
 
     ws.on("message", async (raw) => {
       try {
-        const msg = JSON.parse(String(raw));
+        const str = String(raw);
+
+        // Fast path: WS data forwarding uses "W:${connId}:${data}" prefix (no JSON parse)
+        if (str.startsWith("W:")) {
+          const connId = str.slice(2, 16);
+          const data = str.slice(17);
+          const localWs = localWsConnections.get(connId);
+          if (localWs && localWs.readyState === WebSocket.OPEN) {
+            localWs.send(data);
+          }
+          return;
+        }
+
+        const msg = JSON.parse(str);
 
         if (msg.type === "auth:ok") {
           authenticated = true;
@@ -93,10 +106,6 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
       handleWsOpen(msg);
       return;
     }
-    if (msg.type === "ws:message") {
-      handleWsMessage(msg);
-      return;
-    }
     if (msg.type === "ws:close") {
       handleWsClose(msg);
     }
@@ -144,37 +153,30 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
   const localWsConnections = new Map();
 
   function handleWsOpen(msg) {
+    const connId = msg.connId;
     const localWsUrl = `${localServerUrl.replace(/^http/, "ws")}${msg.path}`;
     const localWs = new WebSocket(localWsUrl);
 
-    localWsConnections.set(msg.connId, localWs);
+    localWsConnections.set(connId, localWs);
 
     localWs.on("message", (data) => {
-      sendToRelay({
-        type: "ws:message",
-        connId: msg.connId,
-        data: String(data)
-      });
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        // Fast path: prefix with connId, no JSON wrapping
+        ws.send(`W:${connId}:${String(data)}`);
+      }
     });
 
     localWs.on("close", () => {
-      localWsConnections.delete(msg.connId);
+      localWsConnections.delete(connId);
       sendToRelay({
         type: "ws:close",
-        connId: msg.connId
+        connId
       });
     });
 
     localWs.on("error", () => {
-      localWsConnections.delete(msg.connId);
+      localWsConnections.delete(connId);
     });
-  }
-
-  function handleWsMessage(msg) {
-    const localWs = localWsConnections.get(msg.connId);
-    if (localWs && localWs.readyState === WebSocket.OPEN) {
-      localWs.send(msg.data);
-    }
   }
 
   function handleWsClose(msg) {

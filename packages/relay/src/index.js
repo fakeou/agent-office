@@ -16,6 +16,59 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
   const upstream = createUpstreamManager({ verifyKey });
   const proxy = createProxy({ upstream });
   const status = createStatusManager({ upstream });
+  const browserSocketsByUser = new Map();
+  const browserSocketsBySession = new Map();
+
+  function addIndexedSocket(map, key, ws) {
+    if (!key) {
+      return;
+    }
+    const set = map.get(key) || new Set();
+    set.add(ws);
+    map.set(key, set);
+  }
+
+  function removeIndexedSocket(map, key, ws) {
+    if (!key) {
+      return;
+    }
+    const set = map.get(key);
+    if (!set) {
+      return;
+    }
+    set.delete(ws);
+    if (set.size === 0) {
+      map.delete(key);
+    }
+  }
+
+  function registerBrowserSocket(ws, { userId = null, sessionId = null } = {}) {
+    addIndexedSocket(browserSocketsByUser, userId, ws);
+    addIndexedSocket(browserSocketsBySession, sessionId, ws);
+    ws.on("close", () => {
+      removeIndexedSocket(browserSocketsByUser, userId, ws);
+      removeIndexedSocket(browserSocketsBySession, sessionId, ws);
+    });
+  }
+
+  function disconnectBrowserSockets({ userId = null, sessionId = null, reason = "token_revoked" } = {}) {
+    const targets = new Set();
+    if (sessionId && browserSocketsBySession.has(sessionId)) {
+      for (const ws of browserSocketsBySession.get(sessionId)) {
+        targets.add(ws);
+      }
+    }
+    if (userId && browserSocketsByUser.has(userId)) {
+      for (const ws of browserSocketsByUser.get(userId)) {
+        targets.add(ws);
+      }
+    }
+    for (const ws of targets) {
+      if (ws.readyState === 1) {
+        ws.close(4401, reason);
+      }
+    }
+  }
 
   // --- JWT verification helpers ---
 
@@ -36,21 +89,80 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
     if (!jwtSecret) return null;
     try {
       const payload = jwt.verify(token, jwtSecret);
-      return payload.sub || null;
-    } catch {
+      return {
+        userId: payload.sub || null,
+        sessionId: payload.sid || null,
+        error: payload.sub ? null : "invalid_token",
+        expiresAt: typeof payload.exp === "number" ? payload.exp * 1000 : null
+      };
+    } catch (error) {
+      if (error && error.name === "TokenExpiredError") {
+        return { userId: null, sessionId: null, error: "token_expired", expiresAt: null };
+      }
+      return { userId: null, sessionId: null, error: "invalid_token", expiresAt: null };
+    }
+  }
+
+  function signWsToken({ userId, sessionId = null, expiresAt }) {
+    if (!jwtSecret || !userId || !expiresAt) {
       return null;
+    }
+
+    const expiresInSeconds = Math.max(1, Math.floor((expiresAt - Date.now()) / 1000));
+    const payload = { sub: userId, typ: "agenttown_ws" };
+    if (sessionId) {
+      payload.sid = sessionId;
+    }
+    return jwt.sign(payload, jwtSecret, { expiresIn: expiresInSeconds });
+  }
+
+  function verifyWsToken(token) {
+    if (!jwtSecret) {
+      return { userId: null, sessionId: null, error: "invalid_token", expiresAt: null };
+    }
+
+    try {
+      const payload = jwt.verify(token, jwtSecret);
+      if (payload.typ !== "agenttown_ws") {
+        return { userId: null, error: "invalid_token", expiresAt: null };
+      }
+      return {
+        userId: payload.sub || null,
+        sessionId: payload.sid || null,
+        error: payload.sub ? null : "invalid_token",
+        expiresAt: typeof payload.exp === "number" ? payload.exp * 1000 : null
+      };
+    } catch (error) {
+      if (error && error.name === "TokenExpiredError") {
+        return { userId: null, sessionId: null, error: "token_expired", expiresAt: null };
+      }
+      return { userId: null, sessionId: null, error: "invalid_token", expiresAt: null };
     }
   }
 
   async function verifyTunnelJwt(token) {
     // Fast local check first — rejects invalid signatures immediately
-    const userId = localVerifyJwt(token);
-    if (!userId) return null;
+    const localVerification = localVerifyJwt(token);
+    if (!localVerification || !localVerification.userId) {
+      return {
+        userId: null,
+        sessionId: localVerification?.sessionId || null,
+        error: localVerification?.error || "invalid_token",
+        expiresAt: localVerification?.expiresAt || null
+      };
+    }
+    const userId = localVerification.userId;
+    const sessionId = localVerification.sessionId || null;
 
     // Check cache
     const cached = jwtCache.get(token);
     if (cached && Date.now() - cached.cachedAt < JWT_CACHE_TTL_MS) {
-      return cached.userId;
+      return {
+        userId: cached.userId,
+        sessionId: cached.sessionId || sessionId,
+        error: null,
+        expiresAt: localVerification.expiresAt || null
+      };
     }
 
     // Call API for revocation check
@@ -64,23 +176,35 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
         if (response.ok) {
           const data = await response.json();
           const verifiedUserId = data.userId || null;
+          const verifiedSessionId = data.sessionId || sessionId;
           if (verifiedUserId) {
-            jwtCache.set(token, { userId: verifiedUserId, cachedAt: Date.now() });
+            jwtCache.set(token, { userId: verifiedUserId, sessionId: verifiedSessionId, cachedAt: Date.now() });
           }
-          return verifiedUserId;
+          return {
+            userId: verifiedUserId,
+            sessionId: verifiedSessionId,
+            error: verifiedUserId ? null : "invalid_token",
+            expiresAt: localVerification.expiresAt || null
+          };
         }
         // Token revoked or invalid per API
-        return null;
+        const data = await response.json().catch(() => null);
+        return {
+          userId: null,
+          sessionId,
+          error: data?.error || "invalid_token",
+          expiresAt: localVerification.expiresAt || null
+        };
       } catch {
         // API unreachable — graceful degradation to local-only verification
-        jwtCache.set(token, { userId, cachedAt: Date.now() });
-        return userId;
+        jwtCache.set(token, { userId, sessionId, cachedAt: Date.now() });
+        return { userId, sessionId, error: null, expiresAt: localVerification.expiresAt || null };
       }
     }
 
     // No API URL configured — local verification only
-    jwtCache.set(token, { userId, cachedAt: Date.now() });
-    return userId;
+    jwtCache.set(token, { userId, sessionId, cachedAt: Date.now() });
+    return { userId, sessionId, error: null, expiresAt: localVerification.expiresAt || null };
   }
 
   function extractBearerToken(req) {
@@ -89,6 +213,10 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
       return authHeader.slice(7);
     }
     return null;
+  }
+
+  function isLoopbackIp(ip = "") {
+    return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(ip);
   }
 
   // --- Express app ---
@@ -151,6 +279,64 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
     res.json({ ok: true, tunnels: upstream.tunnelCount });
   });
 
+  const internalSecret = process.env.AGENTTOWN_INTERNAL_SECRET || jwtSecret || "";
+
+  function requireInternalAuth(req, res, next) {
+    if (internalSecret) {
+      const token = req.headers["x-agenttown-internal-secret"];
+      if (token !== internalSecret) {
+        return res.status(401).json({ error: "invalid_internal_secret" });
+      }
+      return next();
+    }
+
+    if (!isLoopbackIp(req.ip)) {
+      return res.status(403).json({ error: "internal_loopback_only" });
+    }
+    next();
+  }
+
+  app.post("/api/ws-token", async (req, res) => {
+    if (!jwtSecret) {
+      return res.status(400).json({ error: "ws_token_auth_disabled" });
+    }
+
+    const token = extractBearerToken(req);
+    if (!token) {
+      return res.status(401).json({ error: "missing_token" });
+    }
+
+    const verification = await verifyTunnelJwt(token);
+    if (!verification.userId) {
+      return res.status(401).json({ error: verification.error || "invalid_token" });
+    }
+
+    const wsToken = signWsToken({
+      userId: verification.userId,
+      sessionId: verification.sessionId || null,
+      expiresAt: verification.expiresAt
+    });
+    if (!wsToken || !verification.expiresAt) {
+      return res.status(500).json({ error: "ws_token_issue_failed" });
+    }
+
+    res.json({
+      wsToken,
+      expiresAt: new Date(verification.expiresAt).toISOString()
+    });
+  });
+
+  app.post("/api/internal/disconnect", requireInternalAuth, (req, res) => {
+    const { userId = null, sessionId = null, keyId = null, reason = "token_revoked" } = req.body || {};
+
+    disconnectBrowserSockets({ userId, sessionId, reason });
+    if (keyId) {
+      upstream.disconnectTunnels({ userId, keyId, reason });
+    }
+
+    res.json({ ok: true });
+  });
+
   // User status (for Phase 4 social)
   app.get("/api/users/:userId/status", (req, res) => {
     const userStatus = status.getUserStatus(req.params.userId);
@@ -178,21 +364,22 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
       return res.redirect("/register.html");
     }
 
-    const userId = await verifyTunnelJwt(token);
-    if (!userId) {
+    const verification = await verifyTunnelJwt(token);
+    if (!verification.userId) {
       const acceptsJson = (req.headers.accept || "").includes("application/json");
       if (acceptsJson) {
-        return res.status(401).json({ error: "invalid_token" });
+        return res.status(401).json({ error: verification.error || "invalid_token" });
       }
       return res.redirect("/register.html");
     }
 
     // Check that JWT user matches the tunnel userId
-    if (userId !== req.params.userId) {
+    if (verification.userId !== req.params.userId) {
       return res.status(403).json({ error: "forbidden" });
     }
 
-    req.jwtUserId = userId;
+    req.jwtUserId = verification.userId;
+    req.jwtSessionId = verification.sessionId || null;
     next();
   }
 
@@ -237,26 +424,31 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
     if (tunnelWsMatch) {
       const userId = tunnelWsMatch[1];
       const wsPath = tunnelWsMatch[2];
+      let authExpiresAt = null;
+      let authSessionId = null;
 
       // JWT auth for WS upgrade (token via query param since WS doesn't support custom headers)
       if (jwtSecret) {
+        const wsToken = url.searchParams.get("wsToken");
         const token = url.searchParams.get("token");
-        if (!token) {
+        if (!wsToken && !token) {
           socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
           socket.destroy();
           return;
         }
-        const jwtUserId = await verifyTunnelJwt(token);
-        if (!jwtUserId) {
-          socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        const verification = wsToken ? verifyWsToken(wsToken) : await verifyTunnelJwt(token);
+        if (!verification.userId) {
+          socket.write(`HTTP/1.1 401 Unauthorized\r\nX-AgentTown-Auth-Error: ${verification.error || "invalid_token"}\r\n\r\n`);
           socket.destroy();
           return;
         }
-        if (jwtUserId !== userId) {
+        if (verification.userId !== userId) {
           socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
           socket.destroy();
           return;
         }
+        authExpiresAt = verification.expiresAt || null;
+        authSessionId = verification.sessionId || null;
       }
 
       if (!upstream.isOnline(userId)) {
@@ -265,6 +457,25 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
         return;
       }
       wss.handleUpgrade(request, socket, head, (ws) => {
+        registerBrowserSocket(ws, { userId, sessionId: authSessionId });
+        if (authExpiresAt) {
+          const delay = authExpiresAt - Date.now();
+          if (delay <= 0) {
+            ws.close(4401, "token_expired");
+            return;
+          }
+          const expiryTimer = setTimeout(() => {
+            if (ws.readyState === 1) {
+              ws.close(4401, "token_expired");
+            }
+          }, delay);
+          if (typeof expiryTimer.unref === "function") {
+            expiryTimer.unref();
+          }
+          ws.on("close", () => {
+            clearTimeout(expiryTimer);
+          });
+        }
         proxy.handleWsProxy(ws, userId, wsPath);
       });
       return;
@@ -308,7 +519,13 @@ if (require.main === module) {
       });
       if (!response.ok) return null;
       const data = await response.json();
-      return data.userId || null;
+      if (!data.userId) {
+        return null;
+      }
+      return {
+        userId: data.userId,
+        keyId: data.keyId || null
+      };
     } catch {
       return null;
     }

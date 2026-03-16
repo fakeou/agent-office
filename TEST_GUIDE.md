@@ -10,7 +10,7 @@
 
 ```bash
 # 在项目根目录执行
-node packages/cli/src/index.js serve
+node packages/cli/src/index.js start
 ```
 
 服务启动后会输出类似：

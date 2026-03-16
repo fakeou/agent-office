@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { hasValidJwt } from "../lib/jwt";
 import { loadTurnstileScript } from "../lib/turnstile";
 import { useAuthStore } from "../store/auth";
 
@@ -31,7 +32,7 @@ export function AuthPage() {
   const registerEmailRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (token) {
+    if (hasValidJwt(token)) {
       navigate("/dashboard", { replace: true });
     }
   }, [navigate, token]);

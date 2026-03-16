@@ -116,7 +116,7 @@ function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
   });
 
   app.get("/api/sessions", (_req, res) => {
-    res.json({ sessions: store.listSessions() });
+    res.json({ sessions: store.listSessionSummaries() });
   });
 
   app.get("/api/sessions/:sessionId", (req, res) => {
