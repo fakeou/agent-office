@@ -66,28 +66,6 @@ function verifyToken(input) {
   return crypto.timingSafeEqual(inputBuf, expectedBuf);
 }
 
-const LAN_PATTERNS = [
-  /^127\./,
-  /^192\.168\./,
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^::1$/,
-  /^::ffff:127\./,
-  /^::ffff:192\.168\./,
-  /^::ffff:10\./,
-  /^::ffff:172\.(1[6-9]|2\d|3[01])\./
-];
-
-function isLanRequest(req) {
-  const ip = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || "";
-  return LAN_PATTERNS.some((pattern) => pattern.test(ip));
-}
-
-function isLanIp(ip) {
-  const addr = ip || "";
-  return LAN_PATTERNS.some((pattern) => pattern.test(addr));
-}
-
 // --- Rate limiter ---
 
 const loginAttempts = new Map();
@@ -190,8 +168,6 @@ module.exports = {
   setToken,
   getToken,
   verifyToken,
-  isLanRequest,
-  isLanIp,
   checkRateLimit,
   recordAttempt,
   getTokenFromCookie,

@@ -2,10 +2,10 @@ const http = require("node:http");
 const path = require("node:path");
 const express = require("express");
 const { WebSocketServer } = require("ws");
-const { STATIC_DIR } = require("@agenttown/web");
+const { STATIC_DIR } = require("@agent-town/web");
 const auth = require("./auth");
 
-function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
+function createAppServer({ host, port, store, ptyManager }) {
   const app = express();
   app.set("trust proxy", true);
   app.use(express.json({ limit: "1mb" }));
@@ -27,7 +27,9 @@ function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
   }
 
   function isAuthorizedRequest(req) {
-    if (!forceAuth && auth.isLanRequest(req)) {
+    const ip = req.ip || req.socket?.remoteAddress || "";
+    const isLocal = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+    if (isLocal) {
       return true;
     }
     const cookieToken = auth.getTokenFromCookie(req);
@@ -97,8 +99,7 @@ function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
   app.get("/api/auth/check", (req, res) => {
     const cookieToken = auth.getTokenFromCookie(req);
     const authenticated = cookieToken ? auth.verifyToken(cookieToken) : false;
-    const lan = auth.isLanRequest(req);
-    res.json({ authenticated: authenticated || (!forceAuth && lan), lan, forceAuth });
+    res.json({ authenticated });
   });
 
   app.get("/", (_req, res) => {
@@ -165,22 +166,15 @@ function createAppServer({ host, port, store, ptyManager, forceAuth = false }) {
       return;
     }
 
-    const ip = request.socket?.remoteAddress || "";
-    const isLan = auth.isLanIp(ip);
-
-    if (!forceAuth && isLan) {
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        ws.path = pathname;
-        wss.emit("connection", ws, request);
-      });
-      return;
-    }
-
-    const cookieToken = auth.getTokenFromCookie(request);
-    if (!cookieToken || !auth.verifyToken(cookieToken)) {
-      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-      socket.destroy();
-      return;
+    const remoteIp = request.socket?.remoteAddress || "";
+    const isLocal = remoteIp === "127.0.0.1" || remoteIp === "::1" || remoteIp === "::ffff:127.0.0.1";
+    if (!isLocal) {
+      const cookieToken = auth.getTokenFromCookie(request);
+      if (!cookieToken || !auth.verifyToken(cookieToken)) {
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        socket.destroy();
+        return;
+      }
     }
 
     wss.handleUpgrade(request, socket, head, (ws) => {

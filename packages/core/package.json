@@ -1,5 +1,5 @@
 {
-  "name": "@agenttown/core",
+  "name": "@agent-town/core",
   "version": "0.2.0",
   "private": true,
   "main": "src/index.js",

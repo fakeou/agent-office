@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+try {
+  process.loadEnvFile?.();
+} catch {}
+
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
@@ -10,7 +14,7 @@ const {
   DEFAULT_LAN_HOST,
   DEFAULT_PORT,
   DEFAULT_SERVER_URL
-} = require("@agenttown/core");
+} = require("@agent-town/core");
 const {
   createPtyManager,
   defaultTransportForProvider,
@@ -25,11 +29,31 @@ const {
   listAgentTownSessions,
   killSession,
   tmuxPath
-} = require("@agenttown/runtime");
-const auth = require("./auth");
+} = require("@agent-town/runtime");
 const { createTunnelClient } = require("./tunnel");
 
-const DEFAULT_RELAY_URL = "http://localhost:9000";
+const DEFAULT_RELAY_URL = "https://agenttown.cc";
+
+function readEnvValue(name) {
+  const value = process.env[name];
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function resolveHostedOptions(options) {
+  const optionKey = typeof options.key === "string" ? options.key.trim() : "";
+  const optionRelay = typeof options.relay === "string" ? options.relay.trim() : "";
+
+  return {
+    key: optionKey || readEnvValue("AGENTTOWN_API_KEY"),
+    relayUrl: optionRelay || readEnvValue("AGENTTOWN_RELAY_URL") || DEFAULT_RELAY_URL,
+    keySource: optionKey ? "--key" : readEnvValue("AGENTTOWN_API_KEY") ? "AGENTTOWN_API_KEY" : null,
+    relaySource: optionRelay ? "--relay" : readEnvValue("AGENTTOWN_RELAY_URL") ? "AGENTTOWN_RELAY_URL" : "default"
+  };
+}
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -118,34 +142,8 @@ async function resolveAttachTarget({ target, server }) {
   return null;
 }
 
-function printAuthInfo(forceAuth, token) {
-  console.log("");
-  console.log("AgentTown Authentication");
-  console.log(`- token file: ${auth.TOKEN_PATH}`);
-  console.log(`- token: ${token}`);
-  console.log(`- auth mode: ${forceAuth ? "all requests require token" : "LAN requests bypass auth"}`);
-  console.log("");
-}
-
 async function main() {
   const { action, subaction, options, command } = parseArgs(process.argv);
-
-  // --- Token management commands ---
-  if (action === "token") {
-    if (subaction === "reset") {
-      const newToken = auth.resetToken();
-      console.log("Token reset successfully.");
-      console.log(`New token: ${newToken}`);
-      console.log(`Token file: ${auth.TOKEN_PATH}`);
-      return;
-    }
-    if (subaction === "show" || !subaction) {
-      const token = auth.loadOrCreateToken();
-      console.log(token);
-      return;
-    }
-    throw new Error(`unknown token subcommand: ${subaction}`);
-  }
 
   if (action === "start") {
     const nodePtySetup = ensureNodePtySpawnHelper();
@@ -157,28 +155,17 @@ async function main() {
     const port = Number(options.port || DEFAULT_PORT);
     const localServerUrl = `http://127.0.0.1:${port}`;
     const handlerPath = path.resolve(__dirname, "index.js");
-    const forceAuth = !!options.auth;
-
-    // Initialize token
-    if (options["auth-token"]) {
-      auth.setToken(String(options["auth-token"]));
-    }
-    const token = auth.loadOrCreateToken();
 
     console.log("AgentTown preflight");
     console.log(`- tmux: ${commandExists("tmux") ? resolveCommand("tmux") : "missing"}`);
     console.log(`- claude: ${commandExists("claude") ? resolveCommand("claude") : "missing"}`);
     console.log(`- codex: ${commandExists("codex") ? resolveCommand("codex") : "missing"}`);
 
-    if (options["setup-claude"]) {
+    if (!hasClaudeHookConfig({ serverUrl: localServerUrl, handlerPath })) {
       const settingsPath = applyClaudeHookConfig({ serverUrl: localServerUrl, handlerPath });
       console.log(`- claude hooks: installed into ${settingsPath}`);
     } else {
-      const configured = hasClaudeHookConfig({ serverUrl: localServerUrl, handlerPath });
-      console.log(`- claude hooks: ${configured ? "configured" : "not configured"}`);
-      if (!configured) {
-        console.log("  run `agenttown start --setup-claude` once to install AgentTown Claude hooks.");
-      }
+      console.log("- claude hooks: configured");
     }
 
     if (!commandExists("tmux")) {
@@ -188,25 +175,25 @@ async function main() {
     const store = createSessionStore();
     const ptyManager = createPtyManager({ store });
     const restored = ptyManager.restoreManagedSessions();
-    createAppServer({ host, port, store, ptyManager, forceAuth });
+    createAppServer({ host, port, store, ptyManager });
     console.log(`AgentTown restored ${restored.length} session(s).`);
     console.log("AgentTown URLs");
     for (const url of networkUrls({ host, port })) {
       console.log(`- ${url}`);
     }
-
-    printAuthInfo(forceAuth, token);
+    console.log("");
 
     // --- Hosted mode: connect tunnel to relay ---
-    if (options.key) {
-      const relayUrl = options.relay || DEFAULT_RELAY_URL;
+    const hosted = resolveHostedOptions(options);
+    if (hosted.key) {
       const localServerUrl = `http://127.0.0.1:${port}`;
       const tunnel = createTunnelClient({
-        key: String(options.key),
-        relayUrl,
+        key: hosted.key,
+        relayUrl: hosted.relayUrl,
         localServerUrl
       });
-      console.log(`AgentTown tunnel connecting to relay: ${relayUrl}`);
+      console.log(`AgentTown tunnel connecting to relay: ${hosted.relayUrl}`);
+      console.log(`- hosted auth: key from ${hosted.keySource}, relay from ${hosted.relaySource}`);
       tunnel.sendStatusSummary(store.listSessionSummaries());
 
       let statusDebounceTimer = null;

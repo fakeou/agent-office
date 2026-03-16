@@ -2,14 +2,14 @@
   "name": "agent-town-monorepo",
   "version": "0.2.0",
   "private": true,
-  "packageManager": "pnpm@10",
+  "packageManager": "pnpm@10.32.1",
   "description": "Local-first AI workshop supervisor for Claude, Codex, and other terminal coding agents.",
   "scripts": {
     "postinstall": "node -e \"const { ensureNodePtySpawnHelper } = require('./packages/runtime/src/ensure-node-pty'); const result = ensureNodePtySpawnHelper(); if (result.changed.length) console.log('Repaired node-pty spawn-helper permissions:', result.changed.join(', '));\"",
     "start": "node packages/cli/src/index.js start",
-    "app:dev": "pnpm --filter @agenttown/app dev",
-    "app:build": "pnpm --filter @agenttown/app build",
-    "app:preview": "pnpm --filter @agenttown/app preview",
+    "app:dev": "pnpm --filter @agent-town/app dev",
+    "app:build": "pnpm --filter @agent-town/app build",
+    "app:preview": "pnpm --filter @agent-town/app preview",
     "cli:start": "node packages/cli/src/index.js start",
     "cli:codex": "node packages/cli/src/index.js codex",
     "cli:claude": "node packages/cli/src/index.js claude",
@@ -19,8 +19,8 @@
     "claude": "node packages/cli/src/index.js claude",
     "run": "node packages/cli/src/index.js run",
     "print-claude-hooks": "node packages/cli/src/index.js print-claude-hooks",
-    "relay": "node packages/relay/src/index.js",
-    "api": "node packages/api/src/index.js"
+    "relay": "node services/relay/src/index.js",
+    "api": "node services/api/src/index.js"
   },
   "dependencies": {
     "express": "^4.21.2",

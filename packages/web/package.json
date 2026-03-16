@@ -1,7 +1,0 @@
-{
-  "name": "@agenttown/web",
-  "version": "0.2.0",
-  "private": true,
-  "main": "index.js",
-  "files": ["public", "index.js"]
-}

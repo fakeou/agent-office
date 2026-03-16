@@ -1,7 +1,7 @@
 const crypto = require("node:crypto");
 const os = require("node:os");
 const pty = require("node-pty");
-const { getProvider } = require("@agenttown/core");
+const { getProvider } = require("@agent-town/core");
 const {
   AGENTTOWN_TMUX_PREFIX,
   attachClient,
@@ -477,7 +477,7 @@ function createPtyManager({ store }) {
     if (!entry) {
       const session = store.getSession(sessionId);
       const reason = session && session.transport === "hook"
-        ? "This Claude worker came from hooks only. It updates state in the workshop but does not own a shared terminal. Launch Claude with `agenttown claude` if you want terminal control."
+        ? "This Claude worker came from hooks only. It updates state in the workshop but does not own a shared terminal. Launch Claude with `att claude` if you want terminal control."
         : "No managed terminal transport is attached to this session.";
       ws.send(JSON.stringify({ type: "terminal:unavailable", reason }));
     }

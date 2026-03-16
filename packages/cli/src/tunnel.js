@@ -1,5 +1,5 @@
 const { WebSocket } = require("ws");
-const { toSessionSummary } = require("@agenttown/core");
+const { toSessionSummary } = require("@agent-town/core");
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
