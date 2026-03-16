@@ -147,7 +147,7 @@ function createAppServer({ host, port, store, ptyManager }) {
 
   app.post("/api/providers/claude/hook", (req, res) => {
     const session = ptyManager.ingestClaudeHook(req.body || {});
-    res.json({ ok: true, sessionId: session.sessionId });
+    res.json({ ok: true, sessionId: session?.sessionId ?? null });
   });
 
   app.get("*", (_req, res) => {
