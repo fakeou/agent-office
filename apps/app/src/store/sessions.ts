@@ -38,6 +38,7 @@ interface SessionsState {
   removeSession: (sessionId: string) => void;
   startWs: () => void;
   stopWs: () => void;
+  reconnectNow: () => void;
 }
 
 let ws: WebSocket | null = null;
@@ -156,5 +157,26 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     }
     connectPromise = null;
     set({ connected: false });
-  }
+  },
+
+  reconnectNow: () => {
+    // Kill pending reconnect timer and reset backoff
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    reconnectDelay = 1000;
+
+    // If already connected and open, nothing to do
+    if (ws?.readyState === WebSocket.OPEN) return;
+
+    // Close stale socket if lingering
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+    connectPromise = null;
+
+    get().startWs();
+  },
 }));

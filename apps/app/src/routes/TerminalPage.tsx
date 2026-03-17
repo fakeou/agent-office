@@ -5,6 +5,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { App } from "@capacitor/app";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -139,12 +140,16 @@ export function TerminalPage() {
 
     let gotFirstData = false;
 
-    async function connect() {
+    async function connect(freshToken?: boolean) {
       if (disposed.current) return;
       const wsBase = RELAY_BASE.replace(/^http/, "ws");
-      // Reuse the pre-fetched wsToken (0 extra RTT)
+      // Reuse the pre-fetched wsToken, or fetch fresh on resume
       let authQuery = "";
-      try { authQuery = await wsTokenPromise; } catch { return; }
+      try {
+        authQuery = freshToken
+          ? await getRelayWsQuery(token).catch(() => "")
+          : await wsTokenPromise;
+      } catch { return; }
       if (disposed.current) return;
 
       const url = authQuery
@@ -225,11 +230,33 @@ export function TerminalPage() {
 
     rafRef.current = requestAnimationFrame(tryOpen);
 
+    // Reconnect terminal WS immediately when app resumes from background
+    function handleResume() {
+      if (disposed.current) return;
+      const w = wsRef.current;
+      if (w && w.readyState === WebSocket.OPEN) return; // still alive
+      // Kill pending backoff timer and reconnect with fresh token
+      if (reconnTimer.current) { clearTimeout(reconnTimer.current); reconnTimer.current = null; }
+      reconnDelay.current = 1000;
+      if (w) { w.close(); wsRef.current = null; }
+      void connect(true);
+    }
+
+    const appListener = App.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) handleResume();
+    });
+    function onVisibility() {
+      if (document.visibilityState === "visible") handleResume();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       disposed.current = true;
       sendInputRef.current = () => {};
       ro?.disconnect();
       window.removeEventListener("resize", handleWindowResize);
+      document.removeEventListener("visibilitychange", onVisibility);
+      appListener.then((l) => l.remove());
       if (reconnTimer.current) clearTimeout(reconnTimer.current);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       dataDisposable.dispose();

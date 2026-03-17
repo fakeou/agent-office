@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { App } from "@capacitor/app";
 import { getJwtExpiryAt, hasValidJwt } from "../lib/jwt";
 import { useAuthStore } from "../store/auth";
 import { useSessionsStore } from "../store/sessions";
@@ -10,6 +11,7 @@ export function SessionsRuntime() {
   const fetchSessions = useSessionsStore((state) => state.fetchSessions);
   const startWs = useSessionsStore((state) => state.startWs);
   const stopWs = useSessionsStore((state) => state.stopWs);
+  const reconnectNow = useSessionsStore((state) => state.reconnectNow);
   const tokenValid = hasValidJwt(token);
   const tokenExpiryAt = getJwtExpiryAt(token);
 
@@ -33,6 +35,32 @@ export function SessionsRuntime() {
       stopWs();
     };
   }, [fetchSessions, startWs, stopWs, tokenValid, userId]);
+
+  // Reconnect immediately when app returns to foreground
+  useEffect(() => {
+    if (!tokenValid || !userId) return;
+
+    const listener = App.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) {
+        reconnectNow();
+        fetchSessions().catch(() => {});
+      }
+    });
+
+    // Also handle browser tab visibility (web / PWA)
+    function handleVisibility() {
+      if (document.visibilityState === "visible") {
+        reconnectNow();
+        fetchSessions().catch(() => {});
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      listener.then((l) => l.remove());
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchSessions, reconnectNow, tokenValid, userId]);
 
   useEffect(() => {
     if (!token || !tokenExpiryAt) {
