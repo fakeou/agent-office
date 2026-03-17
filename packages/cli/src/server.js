@@ -1,8 +1,6 @@
 const http = require("node:http");
-const path = require("node:path");
 const express = require("express");
 const { WebSocketServer } = require("ws");
-const { STATIC_DIR } = require("./web");
 const auth = require("./auth");
 
 function createAppServer({ host, port, store, ptyManager }) {
@@ -37,7 +35,7 @@ function createAppServer({ host, port, store, ptyManager }) {
   }
 
   function sendOfficeShell(res) {
-    res.sendFile(path.join(STATIC_DIR, "office.html"));
+    res.status(404).json({ error: "no_web_ui" });
   }
 
   app.use((req, res, next) => {
@@ -109,8 +107,6 @@ function createAppServer({ host, port, store, ptyManager }) {
   app.get("/index.html", (_req, res) => {
     sendOfficeShell(res);
   });
-
-  app.use(express.static(STATIC_DIR, { index: false }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
