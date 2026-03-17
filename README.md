@@ -6,6 +6,14 @@ AgentOffice runs on your machine and turns every running AI agent into an employ
 
 ---
 
+## Preview
+
+![Office — four workers active](docs/images/office.jpg)
+
+![Terminal — remote session view](docs/images/terminal.jpg)
+
+---
+
 ## What It Does
 
 - **Visualizes AI agents as employees** — each session appears as a live worker on the office floor with real-time status: `idle`, `working`, `approval`, or `attention`
