@@ -6,7 +6,7 @@ export const API_BASE: string =
 export const RELAY_BASE: string =
   import.meta.env.VITE_RELAY_BASE !== undefined ? import.meta.env.VITE_RELAY_BASE : window.location.origin;
 
-export const GODOT_WORKSHOP_URL: string =
-  import.meta.env.VITE_GODOT_WORKSHOP_URL !== undefined
-    ? import.meta.env.VITE_GODOT_WORKSHOP_URL
+export const GODOT_OFFICE_URL: string =
+  import.meta.env.VITE_GODOT_OFFICE_URL !== undefined
+    ? import.meta.env.VITE_GODOT_OFFICE_URL
     : "/godot/index.html";

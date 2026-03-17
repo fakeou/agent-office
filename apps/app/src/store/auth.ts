@@ -15,8 +15,8 @@ type AuthState = {
   clearAuth: () => void;
 };
 
-const TOKEN_KEY = "agenttown_jwt";
-const USER_ID_KEY = "agenttown_user_id";
+const TOKEN_KEY = "agentoffice_jwt";
+const USER_ID_KEY = "agentoffice_user_id";
 
 function readStoredAuth() {
   const token = window.localStorage.getItem(TOKEN_KEY);

@@ -19,7 +19,7 @@ export interface Session {
   displayState: string;
   displayZone: string;
   status: SessionStatus;
-  visibleInWorkshop: boolean;
+  visibleInOffice: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -108,7 +108,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
             if (msg.type === "sessions:snapshot" && Array.isArray(msg.sessions)) {
               set({ sessions: msg.sessions });
             } else if (msg.type === "session:update" && msg.session) {
-              if (msg.session.visibleInWorkshop === false || ["completed", "exited"].includes(msg.session.status)) {
+              if (msg.session.visibleInOffice === false || ["completed", "exited"].includes(msg.session.status)) {
                 get().removeSession(msg.session.sessionId);
               } else {
                 get().upsertSession(msg.session);

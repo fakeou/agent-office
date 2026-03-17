@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AgentTown — Sign Up / Login</title>
+    <title>AgentOffice — Sign Up / Login</title>
     <link rel="stylesheet" href="/login.css" />
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
   </head>
@@ -15,11 +15,11 @@
           <div class="auth-brand-mark">
             <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           </div>
-          <span class="auth-brand-name">AgentTown</span>
+          <span class="auth-brand-name">AgentOffice</span>
         </div>
 
         <h1 class="auth-title" id="page-title">Welcome back</h1>
-        <p class="auth-subtitle" id="page-desc">Sign in to manage your API keys and workshop.</p>
+        <p class="auth-subtitle" id="page-desc">Sign in to manage your API keys and office.</p>
 
         <!-- ===== LOGIN ===== -->
         <div class="auth-mode active" id="login-section">
@@ -77,7 +77,7 @@
 
     <script>
       (function () {
-        const API_BASE = window.AGENTTOWN_API_BASE || "";
+        const API_BASE = window.AGENTOFFICE_API_BASE || "";
 
         const errorBox = document.getElementById("auth-error");
         const loginSection = document.getElementById("login-section");
@@ -109,14 +109,14 @@
           errorBox.hidden = true;
           if (isRegister) {
             pageTitle.textContent = "Create account";
-            pageDesc.textContent = "Sign up to get your API key and connect your workshop.";
+            pageDesc.textContent = "Sign up to get your API key and connect your office.";
             loginSection.classList.remove("active");
             registerSection.classList.add("active");
             toggleText.textContent = "Already have an account?";
             toggleLink.textContent = "Log in";
           } else {
             pageTitle.textContent = "Welcome back";
-            pageDesc.textContent = "Sign in to manage your API keys and workshop.";
+            pageDesc.textContent = "Sign in to manage your API keys and office.";
             registerSection.classList.remove("active");
             loginSection.classList.add("active");
             toggleText.textContent = "Don't have an account?";
@@ -257,8 +257,8 @@
             const data = await res.json();
 
             if (res.ok && data.token) {
-              localStorage.setItem("agenttown_jwt", data.token);
-              localStorage.setItem("agenttown_user_id", data.userId);
+              localStorage.setItem("agentoffice_jwt", data.token);
+              localStorage.setItem("agentoffice_user_id", data.userId);
               window.location.href = "/";
               return;
             }
@@ -291,8 +291,8 @@
             const data = await res.json();
 
             if (res.ok && data.token) {
-              localStorage.setItem("agenttown_jwt", data.token);
-              localStorage.setItem("agenttown_user_id", data.userId);
+              localStorage.setItem("agentoffice_jwt", data.token);
+              localStorage.setItem("agentoffice_user_id", data.userId);
               window.location.href = "/";
               return;
             }

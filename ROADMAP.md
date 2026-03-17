@@ -1,24 +1,24 @@
-# AgentTown Roadmap
+# AgentOffice Roadmap
 
 ## Phase 1 — 局域网单机监控
 
 > 目标：在本地局域网内完成从启动到终端控制的完整闭环。
 
 - [x] 局域网内通过 Web 端远程查看并控制终端会话
-- [x] 支持 Claude / Codex 通过 `agenttown claude` / `agenttown codex` 启动并自动注册 Worker
-- [x] 前端 Workshop 四状态机（`idle` → `working` → `approval` → `attention`）正常流转与 UI 联动
+- [x] 支持 Claude / Codex 通过 `agentoffice claude` / `agentoffice codex` 启动并自动注册 Worker
+- [x] 前端 Office 四状态机（`idle` → `working` → `approval` → `attention`）正常流转与 UI 联动
 - [x] 支持网页创建claude/codex 终端
 
 ## Phase 2 — 公网远程访问
 
-> 目标：突破局域网限制，从任意网络环境管理本地 Agent。通过 Relay 托管模式建立隧道，AgentTown 负责应用层认证、WebSocket 断线重连和隧道管理。
+> 目标：突破局域网限制，从任意网络环境管理本地 Agent。通过 Relay 托管模式建立隧道，AgentOffice 负责应用层认证、WebSocket 断线重连和隧道管理。
 
 ### Token 认证系统（本地模式）
 
 - [x] `src/auth.js` 认证模块（token 生成、时序安全比较、LAN 判断、限速）
-- [x] 启动时检查 `~/.agenttown/token`，不存在则生成 64 位 hex 随机 token
-- [x] `agenttown token reset` 命令：重新生成 token
-- [x] `agenttown token show` 命令：查看当前 token
+- [x] 启动时检查 `~/.agentoffice/token`，不存在则生成 64 位 hex 随机 token
+- [x] `agentoffice token reset` 命令：重新生成 token
+- [x] `agentoffice token show` 命令：查看当前 token
 - [x] 启动时打印 token、文件路径和认证模式
 
 ### HTTP 认证中间件
@@ -39,7 +39,7 @@
 
 - [x] `static/login.html` + `static/login.css`：token 输入 + 登录按钮
 - [x] 成功后跳转主页，失败显示错误和剩余尝试次数
-- [x] 样式与 AgentTown 现有风格一致
+- [x] 样式与 AgentOffice 现有风格一致
 
 ### 前端认证感知
 
@@ -75,23 +75,23 @@
 - [x] 隧道建立后自动推送 session 状态摘要到 Relay 缓存
 - [x] ~~FRP 模式~~ 已废弃，统一到 Relay 托管模式
 
-## Phase 3 — 像素风游戏化 Workshop
+## Phase 3 — 像素风游戏化 Office
 
-> 目标：将 Workshop 从仪表盘升级为像素风动画场景，同时保留现有 Web / App 终端体验与本地 daemon 架构。
+> 目标：将 Office 从仪表盘升级为像素风动画场景，同时保留现有 Web / App 终端体验与本地 daemon 架构。
 
 ### 架构方向
 
-- [ ] 采用混合架构：业务壳继续使用前端技术承载，Workshop 主视图升级为嵌入式 canvas 世界
+- [ ] 采用混合架构：业务壳继续使用前端技术承载，Office 主视图升级为嵌入式 canvas 世界
 - [ ] 优先选择 `PixiJS` 作为世界渲染层，保留现有 DOM / 路由 / `xterm.js` 终端页
 - [ ] 后端继续只输出 Worker 业务状态（`idle` / `working` / `approval` / `attention`）与 session 元数据
 - [ ] 前端世界层自行负责状态到目标区域、目标家具、动画循环和简单寻路的映射
 - [ ] 点击 Worker 角色时保持现有行为不变，仍然跳转到对应 `#/terminal/:sessionId`
-- [ ] Workshop 世界作为常驻运行时，只在页面切换时暂停或隐藏，不重复销毁和初始化资源
+- [ ] Office 世界作为常驻运行时，只在页面切换时暂停或隐藏，不重复销毁和初始化资源
 
 ### 世界与玩法表达
 
 - [ ] 视角决策：Phase 3 第一版采用正俯视视角，优先突出四个工作区的清晰分区、状态可读性和点击准确性
-- [ ] 将现有四状态映射为四个像素分区：`Workshop Floor`、`Approval Desk`、`Attention Desk`、`Idle`
+- [ ] 将现有四状态映射为四个像素分区：`Office Floor`、`Approval Desk`、`Attention Desk`、`Idle`
 - [ ] 每个分区定义少量可复用锚点（anchor points）和家具交互点（interaction points）
 - [ ] Worker 收到新状态后，前端仅为其选择目标锚点并完成简单移动，不追求复杂过渡动画
 - [ ] Worker 到达目标点后直接切换到对应状态表现，优先保证一眼可读而不是动作丰富度
@@ -103,7 +103,7 @@
 ### 前端实现步骤
 
 - [ ] 新建世界层模块，例如 `world/` 或独立场景管理器，负责 Pixi app、资源缓存、entity 更新和点击命中
-- [ ] 用 canvas 世界替换当前 Workshop 卡片视图，但保留顶栏、按钮、连接状态、筛选和其他 DOM UI
+- [ ] 用 canvas 世界替换当前 Office 卡片视图，但保留顶栏、按钮、连接状态、筛选和其他 DOM UI
 - [ ] 建立 `session -> worker entity` 同步层，将后端 session 数据映射为前端角色实体
 - [ ] 每个 `worker entity` 保留稳定的 `sessionId`，作为点击后跳转终端的唯一标识
 - [ ] 名字标签作为 `worker entity` 的子节点渲染在头顶，而不是使用独立 DOM 浮层
@@ -111,7 +111,7 @@
 - [ ] 为四个分区定义固定家具布局、占位规则和可行走网格
 - [ ] 实现简单可用的网格寻路（A* 即可），支持状态切换时取消旧路径并重算
 - [ ] 加入轻量的停留时间和占位机制，避免状态抖动导致角色来回跑动或抢占同一家具
-- [ ] 在页面失焦、切换 tab 或进入 terminal 页面时暂停 ticker 或降频；返回 Workshop 时恢复，不重新加载贴图
+- [ ] 在页面失焦、切换 tab 或进入 terminal 页面时暂停 ticker 或降频；返回 Office 时恢复，不重新加载贴图
 - [ ] 点击 Worker 时仅复用现有前端路由跳转到 `#/terminal/:sessionId`，不在 canvas 世界内重写终端逻辑
 - [ ] 为 Worker 点击增加最小交互反馈，例如 hover 高亮、名称浮层和误触保护
 
@@ -119,7 +119,7 @@
 
 - [ ] 首选桌面壳继续沿用前端技术路线，优先评估 `Electron`
 - [ ] App 内保留现有 Web 技术承载的登录、设置、终端和会话管理
-- [ ] Workshop 世界作为 App 中的嵌入式 canvas 视图，而不是单独的游戏运行时
+- [ ] Office 世界作为 App 中的嵌入式 canvas 视图，而不是单独的游戏运行时
 
 ### 资产获取与生产方案
 
@@ -153,12 +153,12 @@
 
 - [ ] M1：单个 Worker 能在四个区域之间切换状态并完成寻路和动画播放
 - [ ] M2：多个 Worker 同时运行时，能稳定占位、移动和点击进入终端
-- [ ] M3：Workshop 视图在网页与桌面 App 中均可稳定运行，切换标签页或页面后无需重复加载世界资源
+- [ ] M3：Office 视图在网页与桌面 App 中均可稳定运行，切换标签页或页面后无需重复加载世界资源
 - [ ] M4：完成第一版开罗风格像素工坊视觉基线，并具备可持续扩展的资产流水线
 
 ## Phase 4 — 多人协作与社交互动
 
-> 目标：从单人工具进化为多人社区，成为真正的 Agent Town。依赖 Relay 的用户体系和状态缓存实现跨用户交互。
+> 目标：从单人工具进化为多人社区，成为真正的 Agent Office。依赖 Relay 的用户体系和状态缓存实现跨用户交互。
 
 **个人工作室**
 - [ ] 每位用户拥有独立的工作室视图，展示名下所有 Worker 的实时状态
@@ -168,4 +168,4 @@
 - [ ] 支持访问他人工作室，查看其 Worker 运行状态
 - [ ] 加入访客互动动画（围观、点赞、留言气泡等前端表现）
 - [ ] 建立简易好友系统，支持关注、访问记录等基础社交功能
-- [ ] 此阶段 AgentTown 正式成为一个有社区属性的 Agent 协作平台
+- [ ] 此阶段 AgentOffice 正式成为一个有社区属性的 Agent 协作平台

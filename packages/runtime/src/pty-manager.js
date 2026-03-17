@@ -1,9 +1,9 @@
 const crypto = require("node:crypto");
 const os = require("node:os");
 const pty = require("node-pty");
-const { getProvider } = require("@agent-town/core");
+const { getProvider } = require("@agent-office/core");
 const {
-  AGENTTOWN_TMUX_PREFIX,
+  AGENTOFFICE_TMUX_PREFIX,
   attachClient,
   capturePane,
   createTmuxSession,
@@ -195,7 +195,7 @@ function createPtyManager({ store }) {
   function createTmuxManagedSession({ sessionId, providerName, title, command, cwd }) {
     const provider = getProvider(providerName);
     const shell = process.env.SHELL || "/bin/zsh";
-    const tmuxSession = `${AGENTTOWN_TMUX_PREFIX}${sessionId}`;
+    const tmuxSession = `${AGENTOFFICE_TMUX_PREFIX}${sessionId}`;
 
     createTmuxSession({
       sessionName: tmuxSession,
@@ -411,8 +411,8 @@ function createPtyManager({ store }) {
     const targetSessionId = resolveClaudeSessionId(mapped.session);
     const isManagedTarget = targetSessionId !== mapped.session.sessionId;
 
-    // Only update sessions started via `att claude` (managed tmux sessions).
-    // Ignore hooks from external Claude processes not launched by AgentTown.
+    // Only update sessions started via `ato claude` (managed tmux sessions).
+    // Ignore hooks from external Claude processes not launched by AgentOffice.
     if (!isManagedTarget) {
       return null;
     }
@@ -484,7 +484,7 @@ function createPtyManager({ store }) {
     if (!entry) {
       const session = store.getSession(sessionId);
       const reason = session && session.transport === "hook"
-        ? "This Claude worker came from hooks only. It updates state in the workshop but does not own a shared terminal. Launch Claude with `att claude` if you want terminal control."
+        ? "This Claude worker came from hooks only. It updates state in the office but does not own a shared terminal. Launch Claude with `ato claude` if you want terminal control."
         : "No managed terminal transport is attached to this session.";
       ws.send(JSON.stringify({ type: "terminal:unavailable", reason }));
     }

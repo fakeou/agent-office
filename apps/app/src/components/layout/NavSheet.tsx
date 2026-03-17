@@ -60,7 +60,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: "/workshop", label: "Workshop", icon: LayoutGrid },
+    { path: "/office", label: "Office", icon: LayoutGrid },
     { path: "/dashboard", label: "Dashboard", icon: User },
   ];
 
@@ -74,7 +74,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
               <div className="grid h-8 w-8 place-items-center rounded-lg bg-foreground text-background text-xs font-bold tracking-wider">
                 AT
               </div>
-              <span className="text-sm font-semibold">AgentTown</span>
+              <span className="text-sm font-semibold">AgentOffice</span>
             </SheetTitle>
           </SheetHeader>
 

@@ -6,7 +6,7 @@ This package keeps pixel assets in two separate roots:
 
 `public/pixel-assets/`
 
-Use this tree for files that the React app and the future Pixi workshop can load directly at runtime.
+Use this tree for files that the React app and the future Pixi office can load directly at runtime.
 
 The runtime tree should mirror the same folder shape used under `assets-src/` whenever possible. That means:
 

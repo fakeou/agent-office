@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const REGISTRY_DIR = path.join(os.homedir(), ".agenttown", "sessions");
+const REGISTRY_DIR = path.join(os.homedir(), ".agentoffice", "sessions");
 
 function ensureRegistryDir() {
   fs.mkdirSync(REGISTRY_DIR, { recursive: true });

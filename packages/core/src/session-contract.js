@@ -10,7 +10,7 @@ function sessionLifecycle(session) {
     state: session.state || displayState,
     displayState,
     displayZone,
-    visibleInWorkshop: !["completed", "exited"].includes(status)
+    visibleInOffice: !["completed", "exited"].includes(status)
   };
 }
 
@@ -43,7 +43,7 @@ function toPublicSession(session) {
     displayState: lifecycle.displayState,
     displayZone: lifecycle.displayZone,
     status: lifecycle.status,
-    visibleInWorkshop: lifecycle.visibleInWorkshop,
+    visibleInOffice: lifecycle.visibleInOffice,
     lifecycle,
     timestamps: {
       createdAt: session.createdAt,
@@ -79,7 +79,7 @@ function toSessionSummary(session) {
     displayState: publicSession.displayState,
     displayZone: publicSession.displayZone,
     status: publicSession.status,
-    visibleInWorkshop: publicSession.visibleInWorkshop,
+    visibleInOffice: publicSession.visibleInOffice,
     lifecycle: publicSession.lifecycle,
     timestamps: publicSession.timestamps,
     runtime: {

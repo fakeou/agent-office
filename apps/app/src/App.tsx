@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { RootRedirect } from "./routes/RootRedirect";
 import { AuthPage } from "./routes/AuthPage";
 import { DashboardPage } from "./routes/DashboardPage";
-import { WorkshopPlaceholderPage } from "./routes/WorkshopPlaceholderPage";
+import { OfficePage } from "./routes/OfficePage";
 import { TerminalPage } from "./routes/TerminalPage";
 import { SessionsRuntime } from "./components/SessionsRuntime";
 import { NavProvider } from "./components/layout/NavSheet";
@@ -33,25 +33,25 @@ function AppRoutes() {
   const backgroundLocation = state?.backgroundLocation;
   const authenticated = hasValidJwt(token);
 
-  // Keep workshop always mounted so Godot iframe never reloads.
+  // Keep office always mounted so Godot iframe never reloads.
   const bgPath = (backgroundLocation as { pathname?: string } | null)?.pathname;
-  const isWorkshopVisible = authenticated && (location.pathname === "/workshop" || bgPath === "/workshop");
+  const isOfficeVisible = authenticated && (location.pathname === "/office" || bgPath === "/office");
 
   return (
     <>
       <SessionsRuntime />
 
       {/* Always mounted — display:none keeps the Godot iframe alive */}
-      <div style={{ display: isWorkshopVisible ? undefined : "none" }}>
-        <WorkshopPlaceholderPage />
+      <div style={{ display: isOfficeVisible ? undefined : "none" }}>
+        <OfficePage />
       </div>
 
       <Routes location={backgroundLocation || location}>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        {/* Workshop rendered above; keep route to prevent wildcard redirect */}
-        <Route path="/workshop" element={<ProtectedRoute>{null}</ProtectedRoute>} />
+        {/* Office rendered above; keep route to prevent wildcard redirect */}
+        <Route path="/office" element={<ProtectedRoute>{null}</ProtectedRoute>} />
         <Route path="/terminal/:sessionId" element={<ProtectedRoute><TerminalPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

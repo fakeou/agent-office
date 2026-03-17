@@ -2,7 +2,7 @@ const path = require("node:path");
 const os = require("node:os");
 const fs = require("node:fs");
 
-const DEFAULT_DB_PATH = path.join(os.homedir(), ".agenttown", "api.db");
+const DEFAULT_DB_PATH = path.join(os.homedir(), ".agentoffice", "api.db");
 
 let initSqlJs;
 try {
@@ -210,7 +210,7 @@ async function initDb() {
 }
 
 function createDb({ dbPath } = {}) {
-  const resolvedPath = dbPath || process.env.AGENTTOWN_DB_PATH || DEFAULT_DB_PATH;
+  const resolvedPath = dbPath || process.env.AGENTOFFICE_DB_PATH || DEFAULT_DB_PATH;
   fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
 
   if (BetterSqlite3) {

@@ -93,7 +93,7 @@ function createEmailService({ db }) {
 
     const html = `
       <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; text-align: center;">
-        <h2 style="color: #2f2b26;">Your AgentTown verification code</h2>
+        <h2 style="color: #2f2b26;">Your AgentOffice verification code</h2>
         <p style="font-size: 40px; font-weight: bold; letter-spacing: 8px; color: #b95c33; margin: 24px 0;">${code}</p>
         <p style="color: #71675a; font-size: 14px;">This code expires in 10 minutes.</p>
         <p style="color: #71675a; font-size: 12px; margin-top: 24px;">If you didn't request this, you can safely ignore this email.</p>
@@ -109,9 +109,9 @@ function createEmailService({ db }) {
       },
       dispatcher: getProxyDispatcher(resendUrl),
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || `${process.env.RESEND_FROM_NAME || "AgentTown"} <${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}>`,
+        from: process.env.RESEND_FROM || `${process.env.RESEND_FROM_NAME || "AgentOffice"} <${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}>`,
         to: [email],
-        subject: "Your AgentTown verification code",
+        subject: "Your AgentOffice verification code",
         html
       })
     });

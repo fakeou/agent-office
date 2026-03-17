@@ -31,7 +31,7 @@ export function AuthPage() {
   const registerEmailRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (hasValidJwt(token)) navigate("/workshop", { replace: true });
+    if (hasValidJwt(token)) navigate("/office", { replace: true });
   }, [navigate, token]);
 
   useEffect(() => {
@@ -66,8 +66,8 @@ export function AuthPage() {
   const subtitle = useMemo(
     () =>
       mode === "register"
-        ? "Create account and get your workshop online."
-        : "Sign in to manage API keys and prepare the new workshop UI.",
+        ? "Create account and get your office online."
+        : "Sign in to manage API keys and prepare the new office UI.",
     [mode]
   );
 
@@ -86,7 +86,7 @@ export function AuthPage() {
         }),
       });
       setAuth(payload);
-      navigate("/workshop", { replace: true });
+      navigate("/office", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");
     } finally {
@@ -135,7 +135,7 @@ export function AuthPage() {
         }),
       });
       setAuth(payload);
-      navigate("/workshop", { replace: true });
+      navigate("/office", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
@@ -152,10 +152,10 @@ export function AuthPage() {
             AT
           </div>
           <p className="text-[0.7rem] font-medium uppercase tracking-widest text-muted-foreground">
-            AgentTown App
+            AgentOffice App
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">
-            React shell for auth now, Pixi workshop next.
+            React shell for auth now, Pixi office next.
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
         </div>

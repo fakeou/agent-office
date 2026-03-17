@@ -35,8 +35,7 @@ metadata/_edit_use_anchors_ = true
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=771614915]
 scale = Vector2(3, 3)
 sprite_frames = ExtResource("1_k4vpb")
-animation = &"idle_south"
-frame_progress = 0.26808086
+animation = &"walk_west"
 offset = Vector2(0, -16)
 
 [node name="state_anchor" type="Marker2D" parent="." unique_id=1088541678]

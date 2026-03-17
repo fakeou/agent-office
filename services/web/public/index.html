@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AgentTown</title>
+    <title>AgentOffice</title>
     <link rel="stylesheet" href="/login.css" />
   </head>
   <body class="auth-page">
@@ -13,18 +13,18 @@
           <div class="auth-brand-mark">
             <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           </div>
-          <span class="auth-brand-name">AgentTown</span>
+          <span class="auth-brand-name">AgentOffice</span>
         </div>
 
         <h1 class="auth-title">Checking session</h1>
-        <p class="auth-subtitle" id="status-copy">Verifying your account and opening your workshop.</p>
+        <p class="auth-subtitle" id="status-copy">Verifying your account and opening your office.</p>
         <div id="bootstrap-error" class="auth-error" hidden></div>
       </div>
     </div>
 
     <script>
       (function () {
-        const token = localStorage.getItem("agenttown_jwt");
+        const token = localStorage.getItem("agentoffice_jwt");
         const fallbackPath = "/register.html";
         const statusCopy = document.getElementById("status-copy");
         const errorBox = document.getElementById("bootstrap-error");
@@ -35,8 +35,8 @@
         }
 
         boot().catch(function (error) {
-          localStorage.removeItem("agenttown_jwt");
-          localStorage.removeItem("agenttown_user_id");
+          localStorage.removeItem("agentoffice_jwt");
+          localStorage.removeItem("agentoffice_user_id");
           showError(error && error.message ? error.message : "Unable to verify your account right now.");
           setTimeout(function () {
             window.location.replace(fallbackPath);
@@ -50,9 +50,9 @@
             throw new Error("Missing user information.");
           }
 
-          localStorage.setItem("agenttown_user_id", userId);
-          statusCopy.textContent = "Account verified. Opening workshop...";
-          window.location.replace("/tunnel/" + encodeURIComponent(userId) + "/workshop.html");
+          localStorage.setItem("agentoffice_user_id", userId);
+          statusCopy.textContent = "Account verified. Opening office...";
+          window.location.replace("/tunnel/" + encodeURIComponent(userId) + "/office.html");
         }
 
         async function apiFetch(path, bearerToken) {

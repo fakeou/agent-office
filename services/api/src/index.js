@@ -13,9 +13,9 @@ const { createRateLimiter, rateLimitMiddleware } = require("./rate-limit");
 
 async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecret, relayUrl } = {}) {
   await initDb();
-  const resolvedSecret = jwtSecret || process.env.AGENTTOWN_JWT_SECRET || crypto.randomBytes(32).toString("hex");
-  const resolvedRelayUrl = relayUrl || process.env.AGENTTOWN_RELAY_URL || "http://127.0.0.1:9000";
-  const internalSecret = process.env.AGENTTOWN_INTERNAL_SECRET || resolvedSecret || "";
+  const resolvedSecret = jwtSecret || process.env.AGENTOFFICE_JWT_SECRET || crypto.randomBytes(32).toString("hex");
+  const resolvedRelayUrl = relayUrl || process.env.AGENTOFFICE_RELAY_URL || "http://127.0.0.1:9000";
+  const internalSecret = process.env.AGENTOFFICE_INTERNAL_SECRET || resolvedSecret || "";
   const db = createDb({ dbPath });
   const users = createUserService({ db, jwtSecret: resolvedSecret });
   const keys = createKeyService({ db });
@@ -99,7 +99,7 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(internalSecret ? { "x-agenttown-internal-secret": internalSecret } : {})
+          ...(internalSecret ? { "x-agentoffice-internal-secret": internalSecret } : {})
         },
         body: JSON.stringify(payload)
       });
@@ -270,10 +270,10 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
 
   // --- Social (Phase 4 stub) ---
 
-  app.get("/api/users/:userId/workshop", (req, res) => {
-    const visibility = social.getWorkshopVisibility(req.params.userId);
+  app.get("/api/users/:userId/office", (req, res) => {
+    const visibility = social.getOfficeVisibility(req.params.userId);
     if (visibility === "private") {
-      return res.status(403).json({ error: "workshop_private" });
+      return res.status(403).json({ error: "office_private" });
     }
     res.json({ userId: req.params.userId, visibility });
   });
@@ -306,7 +306,7 @@ async function createApiServer({ port = 9001, host = "0.0.0.0", dbPath, jwtSecre
   });
 
   const server = app.listen(port, host, () => {
-    console.log(`AgentTown API listening on http://${host}:${port}`);
+    console.log(`AgentOffice API listening on http://${host}:${port}`);
   });
 
   return { server, app, users, keys, social, verifyKey: keys.verify };

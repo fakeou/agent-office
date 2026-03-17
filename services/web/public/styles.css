@@ -1,4 +1,4 @@
-/* === AgentTown Workshop & Terminal — Warm Atelier === */
+/* === AgentOffice Office & Terminal — Warm Atelier === */
 
 :root {
   --bg: #f4ebe0;
@@ -48,7 +48,7 @@ button, input, textarea, select {
 }
 
 /* ==========================================
-   Workshop Page
+   Office Page
    ========================================== */
 
 .page-shell {
@@ -332,9 +332,9 @@ button, input, textarea, select {
   line-height: 1.5;
 }
 
-/* --- Workshop Grid --- */
+/* --- Office Grid --- */
 
-.workshop-grid {
+.office-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
@@ -784,13 +784,13 @@ button, input, textarea, select {
   }
 }
 
-/* Mobile: ultra-compact workshop + terminal */
+/* Mobile: ultra-compact office + terminal */
 @media (max-width: 768px) {
   .page-shell {
     padding: 14px 12px 24px;
   }
 
-  /* --- Workshop topbar compact --- */
+  /* --- Office topbar compact --- */
   .topbar {
     margin-bottom: 14px;
     gap: 8px;
@@ -837,7 +837,7 @@ button, input, textarea, select {
   .section-head .helper-text { display: none; }
 
   /* --- Zones: stay 2x2 grid, ultra compact --- */
-  .workshop-grid {
+  .office-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     margin-top: 10px;

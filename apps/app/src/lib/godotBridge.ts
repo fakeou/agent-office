@@ -1,6 +1,6 @@
 import type { Session } from "../store/sessions";
 
-export const GODOT_BRIDGE_NAME = "agenttown-godot";
+export const GODOT_BRIDGE_NAME = "agentoffice-godot";
 
 export interface GodotBridgeEnvelope<Payload = unknown> {
   bridge: typeof GODOT_BRIDGE_NAME;
@@ -20,7 +20,7 @@ export interface GodotWorkerSnapshot {
   status: Session["status"];
   displayState: string;
   displayZone: string;
-  visibleInWorkshop: boolean;
+  visibleInOffice: boolean;
   updatedAt: string;
 }
 
@@ -93,7 +93,7 @@ export function mapSessionToGodotWorker(session: Session): GodotWorkerSnapshot {
     status: session.status,
     displayState: session.displayState,
     displayZone: session.displayZone,
-    visibleInWorkshop: session.visibleInWorkshop,
+    visibleInOffice: session.visibleInOffice,
     updatedAt: session.updatedAt
   };
 }

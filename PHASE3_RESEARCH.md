@@ -1,8 +1,8 @@
-# AgentTown Phase 3 Research
+# AgentOffice Phase 3 Research
 
 ## Goal
 
-Phase 3 should turn the current Workshop from a dashboard into a pixel-style interactive world without changing the core product contract:
+Phase 3 should turn the current Office from a dashboard into a pixel-style interactive world without changing the core product contract:
 
 - the daemon remains the source of truth for worker business state
 - the frontend remains responsible for visual mapping and interaction
@@ -169,18 +169,18 @@ The goal is not realism. The goal is to stop workers from looking broken.
 Use a hybrid frontend architecture:
 
 - DOM keeps the app shell, route handling, filters, buttons, connection status, and terminal pages
-- `PixiJS` handles the Workshop world, sprite composition, hit testing, and animation tick
+- `PixiJS` handles the Office world, sprite composition, hit testing, and animation tick
 
 This matches the current product shape and avoids unnecessary rewrites.
 
 ### World Lifecycle
 
-The Workshop world should behave like a long-lived runtime:
+The Office world should behave like a long-lived runtime:
 
 - initialize once
 - cache textures and entity state
 - pause or reduce ticker frequency when hidden
-- resume when the Workshop becomes visible again
+- resume when the Office becomes visible again
 - do not destroy and recreate the world on every route transition
 
 ### Entity Model

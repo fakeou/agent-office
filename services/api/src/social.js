@@ -5,13 +5,13 @@ function createSocialService({ db }) {
     return [];
   }
 
-  function getWorkshopVisibility(userId) {
+  function getOfficeVisibility(userId) {
     return "private";
   }
 
   return {
     getFriends,
-    getWorkshopVisibility
+    getOfficeVisibility
   };
 }
 

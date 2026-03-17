@@ -1,4 +1,4 @@
-/* === AgentTown Auth — Warm Atelier === */
+/* === AgentOffice Auth — Warm Atelier === */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display&display=swap');
 
 /* --- Reset --- */
@@ -747,8 +747,8 @@
   line-height: 1.5;
 }
 
-/* --- Workshop link --- */
-.dash-workshop-link {
+/* --- Office link --- */
+.dash-office-link {
   display: block;
   text-align: center;
   padding: 12px;
@@ -761,12 +761,12 @@
   transition: all 0.2s;
 }
 
-.dash-workshop-link:hover {
+.dash-office-link:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(185,92,51,0.25);
 }
 
-.dash-workshop-link.offline {
+.dash-office-link.offline {
   background: var(--dash-surface);
   border: 1px solid var(--dash-border);
   color: var(--dash-text-muted);

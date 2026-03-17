@@ -4,11 +4,11 @@
   const TUNNEL_PREFIX = tunnelMatch ? `/tunnel/${tunnelMatch[1]}` : "";
 
   // Configurable API base — supports standalone deployment (CDN/Vercel) pointing to a relay
-  const API_BASE = window.AGENTTOWN_API_BASE || TUNNEL_PREFIX;
-  const WS_BASE = window.AGENTTOWN_WS_BASE || `${location.origin.replace(/^http/, "ws")}${TUNNEL_PREFIX}`;
+  const API_BASE = window.AGENTOFFICE_API_BASE || TUNNEL_PREFIX;
+  const WS_BASE = window.AGENTOFFICE_WS_BASE || `${location.origin.replace(/^http/, "ws")}${TUNNEL_PREFIX}`;
 
   const zones = [
-    { id: "working-zone", title: "Workshop Floor", description: "Thinking, searching, editing, or running tools", color: "var(--working)" },
+    { id: "working-zone", title: "Office Floor", description: "Thinking, searching, editing, or running tools", color: "var(--working)" },
     { id: "approval-zone", title: "Approval Desk", description: "Waiting for permission, confirmation, or explicit approval", color: "var(--waiting)" },
     { id: "attention-zone", title: "Attention Desk", description: "Needs intervention or review", color: "var(--attention)" },
     { id: "idle-zone", title: "Idle", description: "No active task right now", color: "var(--idle)" }
@@ -53,10 +53,10 @@
     eventsSocket.addEventListener("message", (event) => {
       const payload = JSON.parse(event.data);
       if (payload.type === "sessions:snapshot") {
-        state.sessions = payload.sessions.filter(isVisibleWorkshopSession);
+        state.sessions = payload.sessions.filter(isVisibleOfficeSession);
       }
       if (payload.type === "session:update") {
-        state.sessions = upsertSession(state.sessions, payload.session).filter(isVisibleWorkshopSession);
+        state.sessions = upsertSession(state.sessions, payload.session).filter(isVisibleOfficeSession);
       }
       state.sessionMap = new Map(state.sessions.map((session) => [session.sessionId, session]));
       state.serverOnline = true;
@@ -95,7 +95,7 @@
     connectEventsSocket();
     api(`/api/sessions`).then((data) => {
       if (data && data.sessions) {
-        state.sessions = data.sessions.filter(isVisibleWorkshopSession);
+        state.sessions = data.sessions.filter(isVisibleOfficeSession);
         state.sessionMap = new Map(state.sessions.map((s) => [s.sessionId, s]));
         render();
       }
@@ -142,7 +142,7 @@
     }));
   });
 
-  function isVisibleWorkshopSession(session) {
+  function isVisibleOfficeSession(session) {
     return !["completed", "exited"].includes(session.status);
   }
 
@@ -161,17 +161,17 @@
     if (match) {
       return { name: "terminal", sessionId: decodeURIComponent(match[1]) };
     }
-    return { name: "workshop" };
+    return { name: "office" };
   }
 
   function getJwt() {
-    return localStorage.getItem("agenttown_jwt");
+    return localStorage.getItem("agentoffice_jwt");
   }
 
   function handleUnauthorized() {
     if (TUNNEL_PREFIX) {
-      localStorage.removeItem("agenttown_jwt");
-      localStorage.removeItem("agenttown_user_id");
+      localStorage.removeItem("agentoffice_jwt");
+      localStorage.removeItem("agentoffice_user_id");
       window.location.href = "/";
     } else {
       window.location.href = "/login.html";
@@ -179,7 +179,7 @@
   }
 
   function getUserId() {
-    const storedUserId = localStorage.getItem("agenttown_user_id");
+    const storedUserId = localStorage.getItem("agentoffice_user_id");
     if (storedUserId) {
       return storedUserId;
     }
@@ -198,13 +198,13 @@
           <div class="nav-drawer-head">
             <div>
               <p class="eyebrow">Navigate</p>
-              <strong>AgentTown</strong>
+              <strong>AgentOffice</strong>
             </div>
             <button class="nav-close-button" type="button" aria-label="Close menu" data-nav-close>&times;</button>
           </div>
           <nav class="nav-drawer-links">
-            <a class="nav-link ${activeView === "workshop" ? "is-active" : ""}" href="${TUNNEL_PREFIX}/workshop.html">
-              <span class="nav-link-title">Workshop</span>
+            <a class="nav-link ${activeView === "office" ? "is-active" : ""}" href="${TUNNEL_PREFIX}/office.html">
+              <span class="nav-link-title">Office</span>
               <span class="nav-link-copy">Live workers and shared terminals</span>
             </a>
             <a class="nav-link ${activeView === "api-keys" ? "is-active" : ""}" href="/dashboard.html">
@@ -374,7 +374,7 @@
         return;
       }
       if (payload.type === "session:update") {
-        state.sessions = upsertSession(state.sessions, payload.session).filter(isVisibleWorkshopSession);
+        state.sessions = upsertSession(state.sessions, payload.session).filter(isVisibleOfficeSession);
         state.sessionMap = new Map(state.sessions.map((session) => [session.sessionId, session]));
         renderTerminalInfo(sessionId);
       }
@@ -439,7 +439,7 @@
     state.terminalSessionId = null;
   }
 
-  function renderWorkshop() {
+  function renderOffice() {
     cleanupTerminal();
     const sessionCount = state.sessions.length;
     const statusLabel = state.connectionStatus === "connected" ? "online" :
@@ -448,7 +448,7 @@
 
     app.innerHTML = `
       <div class="page-shell">
-        ${renderNavDrawer("workshop")}
+        ${renderNavDrawer("office")}
         <header class="topbar">
           <div class="topbar-main">
             ${TUNNEL_PREFIX ? `<button class="menu-button" type="button" data-nav-toggle>
@@ -460,8 +460,8 @@
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
               </div>
               <div class="topbar-text">
-                <p class="eyebrow">AgentTown</p>
-                <h1>Workshop</h1>
+                <p class="eyebrow">AgentOffice</p>
+                <h1>Office</h1>
               </div>
             </div>
           </div>
@@ -475,11 +475,11 @@
           <section class="panel">
             <div class="section-head">
               <div>
-                <h2>Workshop Floor</h2>
+                <h2>Office Floor</h2>
                 <p class="helper-text">Four states on top of provider adapters. Workers move between zones based on their activity.</p>
               </div>
             </div>
-            <div class="workshop-grid">
+            <div class="office-grid">
               ${zones.map(renderZone).join("")}
             </div>
           </section>
@@ -570,14 +570,14 @@
 
     app.innerHTML = `
       <div class="terminal-shell">
-        ${renderNavDrawer("workshop")}
+        ${renderNavDrawer("office")}
         <header class="terminal-topbar">
           <div class="terminal-meta">
             ${TUNNEL_PREFIX ? `<button class="menu-button" type="button" data-nav-toggle>
               <span class="menu-button-lines"></span>
               <span class="menu-button-label">More</span>
             </button>` : ""}
-            <button class="ghost-button" id="back-button" type="button">\u2190 Workshop</button>
+            <button class="ghost-button" id="back-button" type="button">\u2190 Office</button>
             <div class="terminal-info">
               <p class="eyebrow">Terminal</p>
               <h2 id="terminal-title">${escapeHtml(session ? session.title : sessionId)}</h2>
@@ -681,7 +681,7 @@
       renderTerminal();
       return;
     }
-    renderWorkshop();
+    renderOffice();
   }
 
   function providerIcon(provider) {

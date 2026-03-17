@@ -1,15 +1,15 @@
 {
-  "name": "agent-town",
+  "name": "agent-office",
   "version": "0.2.0",
   "private": true,
   "bin": {
-    "att": "src/index.js"
+    "ato": "src/index.js"
   },
   "files": ["src"],
   "dependencies": {
-    "@agent-town/core": "workspace:*",
-    "@agent-town/runtime": "workspace:*",
-    "@agent-town/web": "workspace:*",
+    "@agent-office/core": "workspace:*",
+    "@agent-office/runtime": "workspace:*",
+    "@agent-office/web": "workspace:*",
     "express": "^4.21.2",
     "ws": "^8.18.0"
   }

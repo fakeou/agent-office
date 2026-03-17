@@ -113,7 +113,7 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
     }
 
     const expiresInSeconds = Math.max(1, Math.floor((expiresAt - Date.now()) / 1000));
-    const payload = { sub: userId, typ: "agenttown_ws" };
+    const payload = { sub: userId, typ: "agentoffice_ws" };
     if (sessionId) {
       payload.sid = sessionId;
     }
@@ -127,7 +127,7 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
 
     try {
       const payload = jwt.verify(token, jwtSecret);
-      if (payload.typ !== "agenttown_ws") {
+      if (payload.typ !== "agentoffice_ws") {
         return { userId: null, error: "invalid_token", expiresAt: null };
       }
       return {
@@ -246,11 +246,11 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
   // Serve static web assets (register.html, login pages, etc.)
   let staticDir = null;
   try {
-    const { STATIC_DIR } = require("@agent-town/web");
+    const { STATIC_DIR } = require("@agent-office/web");
     staticDir = STATIC_DIR;
     app.use(express.static(STATIC_DIR));
   } catch {
-    // @agent-town/web not available — skip static file serving
+    // @agent-office/web not available — skip static file serving
   }
 
   function serveTunnelStatic(tunnelPath, res) {
@@ -259,21 +259,21 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
       return;
     }
 
-    const relativePath = tunnelPath === "/" ? "/workshop.html" : tunnelPath;
+    const relativePath = tunnelPath === "/" ? "/office.html" : tunnelPath;
     const normalizedPath = path.posix.normalize(relativePath);
     const requestedPath = normalizedPath.startsWith("/") ? normalizedPath.slice(1) : normalizedPath;
-    const safePath = requestedPath && requestedPath !== "." ? requestedPath : "workshop.html";
+    const safePath = requestedPath && requestedPath !== "." ? requestedPath : "office.html";
     const absolutePath = path.resolve(staticDir, safePath);
     const resolvedStaticDir = path.resolve(staticDir);
 
-    if (!absolutePath.startsWith(resolvedStaticDir + path.sep) && absolutePath !== path.join(resolvedStaticDir, "workshop.html")) {
+    if (!absolutePath.startsWith(resolvedStaticDir + path.sep) && absolutePath !== path.join(resolvedStaticDir, "office.html")) {
       res.status(403).end();
       return;
     }
 
     const targetPath = fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile()
       ? absolutePath
-      : path.join(resolvedStaticDir, "workshop.html");
+      : path.join(resolvedStaticDir, "office.html");
 
     res.sendFile(targetPath);
   }
@@ -283,11 +283,11 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
     res.json({ ok: true, tunnels: upstream.tunnelCount });
   });
 
-  const internalSecret = process.env.AGENTTOWN_INTERNAL_SECRET || jwtSecret || "";
+  const internalSecret = process.env.AGENTOFFICE_INTERNAL_SECRET || jwtSecret || "";
 
   function requireInternalAuth(req, res, next) {
     if (internalSecret) {
-      const token = req.headers["x-agenttown-internal-secret"];
+      const token = req.headers["x-agentoffice-internal-secret"];
       if (token !== internalSecret) {
         return res.status(401).json({ error: "invalid_internal_secret" });
       }
@@ -390,7 +390,7 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
     next();
   }
 
-  // Proxy HTTP requests to user's tunnel. Static workshop shell/assets are served by Relay.
+  // Proxy HTTP requests to user's tunnel. Static office shell/assets are served by Relay.
   app.all("/tunnel/:userId/*", (req, res) => {
     const { userId } = req.params;
     const tunnelPath = req.originalUrl.replace(`/tunnel/${userId}`, "") || "/";
@@ -418,7 +418,7 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
     const url = new URL(request.url, `http://${request.headers.host}`);
     const pathname = url.pathname;
 
-    // Upstream connection from local AgentTown (auth moved to ws.once("message"))
+    // Upstream connection from local AgentOffice (auth moved to ws.once("message"))
     if (pathname === "/upstream") {
       wss.handleUpgrade(request, socket, head, (ws) => {
         upstream.handleUpstream(ws);
@@ -445,7 +445,7 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
         }
         const verification = wsToken ? verifyWsToken(wsToken) : await verifyTunnelJwt(token);
         if (!verification.userId) {
-          socket.write(`HTTP/1.1 401 Unauthorized\r\nX-AgentTown-Auth-Error: ${verification.error || "invalid_token"}\r\n\r\n`);
+          socket.write(`HTTP/1.1 401 Unauthorized\r\nX-AgentOffice-Auth-Error: ${verification.error || "invalid_token"}\r\n\r\n`);
           socket.destroy();
           return;
         }
@@ -502,7 +502,7 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
   });
 
   server.listen(port, host, () => {
-    console.log(`AgentTown Relay listening on http://${host}:${port}`);
+    console.log(`AgentOffice Relay listening on http://${host}:${port}`);
   });
 
   return { server, upstream, proxy, status };
@@ -510,8 +510,8 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
 
 // Standalone runner
 if (require.main === module) {
-  const apiUrl = process.env.AGENTTOWN_API_URL || "http://127.0.0.1:9001";
-  const jwtSecret = process.env.AGENTTOWN_JWT_SECRET || null;
+  const apiUrl = process.env.AGENTOFFICE_API_URL || "http://127.0.0.1:9001";
+  const jwtSecret = process.env.AGENTOFFICE_JWT_SECRET || null;
 
   // Verify key against the API to get the real userId
   async function verifyKey(key) {

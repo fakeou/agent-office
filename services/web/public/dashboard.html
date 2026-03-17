@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AgentTown — Dashboard</title>
+    <title>AgentOffice — Dashboard</title>
     <link rel="stylesheet" href="/login.css" />
   </head>
   <body class="dash-page">
@@ -15,10 +15,10 @@
             <div class="dash-brand-mark">
               <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             </div>
-            <span class="dash-brand-name">AgentTown</span>
+            <span class="dash-brand-name">AgentOffice</span>
           </div>
           <div class="dash-header-actions">
-            <a class="dash-nav-link" href="/">Workshop</a>
+            <a class="dash-nav-link" href="/">Office</a>
             <button class="dash-logout" id="logout-btn">Log out</button>
           </div>
         </div>
@@ -34,23 +34,23 @@
           <button class="dash-create-btn" id="create-key-btn">+ Create New Key</button>
         </div>
 
-        <!-- Connect Workshop -->
+        <!-- Connect Office -->
         <div class="dash-section">
-          <h2 class="dash-section-title">Connect Your Workshop</h2>
+          <h2 class="dash-section-title">Connect Your Office</h2>
           <div class="dash-command" id="command-box">
             <code id="startup-command">Create an API key first</code>
           </div>
-          <p class="dash-helper">Run this command on your local machine to connect your workshop to the cloud.</p>
-          <a href="#" class="dash-workshop-link offline" id="workshop-link" style="margin-top:16px">View Workshop (offline)</a>
+          <p class="dash-helper">Run this command on your local machine to connect your office to the cloud.</p>
+          <a href="#" class="dash-office-link offline" id="office-link" style="margin-top:16px">View Office (offline)</a>
         </div>
       </div>
     </div>
 
     <script>
       (function () {
-        const API_BASE = window.AGENTTOWN_API_BASE || "";
-        const token = localStorage.getItem("agenttown_jwt");
-        const userId = localStorage.getItem("agenttown_user_id");
+        const API_BASE = window.AGENTOFFICE_API_BASE || "";
+        const token = localStorage.getItem("agentoffice_jwt");
+        const userId = localStorage.getItem("agentoffice_user_id");
         const relayUrl = window.location.origin;
 
         if (!token || !userId) {
@@ -70,8 +70,8 @@
             ...options
           });
           if (res.status === 401) {
-            localStorage.removeItem("agenttown_jwt");
-            localStorage.removeItem("agenttown_user_id");
+            localStorage.removeItem("agentoffice_jwt");
+            localStorage.removeItem("agentoffice_user_id");
             window.location.href = "/";
             throw new Error("unauthorized");
           }
@@ -118,7 +118,7 @@
 
           container.querySelectorAll(".dash-key-delete").forEach(function (btn) {
             btn.addEventListener("click", async function () {
-              if (!confirm("Delete this API key? Any workshops using it will disconnect.")) return;
+              if (!confirm("Delete this API key? Any offices using it will disconnect.")) return;
               btn.disabled = true;
               try {
                 await apiFetch("/api/keys/" + btn.dataset.keyId, { method: "DELETE" });
@@ -134,7 +134,7 @@
           } else {
             updateCommand(null);
             var cmd = document.getElementById("startup-command");
-            cmd.textContent = "agenttown start --key " + currentKeys[0].keyPrefix + "... --relay " + relayUrl;
+            cmd.textContent = "ato start --key " + currentKeys[0].keyPrefix + "... --relay " + relayUrl;
           }
         }
 
@@ -149,7 +149,7 @@
             }
             return;
           }
-          var command = "agenttown start --key " + fullKey + " --relay " + relayUrl;
+          var command = "ato start --key " + fullKey + " --relay " + relayUrl;
           cmd.textContent = command;
 
           if (!box.querySelector(".dash-copy-btn")) {
@@ -173,7 +173,7 @@
           try {
             var result = await apiFetch("/api/keys", {
               method: "POST",
-              body: JSON.stringify({ label: "workshop" })
+              body: JSON.stringify({ label: "office" })
             });
             latestNewKey = result.key;
 
@@ -202,28 +202,28 @@
           }
         });
 
-        async function checkWorkshopStatus() {
-          var link = document.getElementById("workshop-link");
+        async function checkOfficeStatus() {
+          var link = document.getElementById("office-link");
           try {
             var res = await fetch(API_BASE + "/api/users/" + encodeURIComponent(userId) + "/status");
             if (res.ok) {
               var status = await res.json();
               if (status.online) {
-                link.href = "/tunnel/" + encodeURIComponent(userId) + "/workshop.html";
-                link.textContent = "View Workshop";
+                link.href = "/tunnel/" + encodeURIComponent(userId) + "/office.html";
+                link.textContent = "View Office";
                 link.classList.remove("offline");
                 return;
               }
             }
           } catch {}
-          link.textContent = "View Workshop (offline)";
+          link.textContent = "View Office (offline)";
           link.classList.add("offline");
           link.href = "#";
         }
 
         document.getElementById("logout-btn").addEventListener("click", function () {
-          localStorage.removeItem("agenttown_jwt");
-          localStorage.removeItem("agenttown_user_id");
+          localStorage.removeItem("agentoffice_jwt");
+          localStorage.removeItem("agentoffice_user_id");
           window.location.href = "/";
         });
 
@@ -237,8 +237,8 @@
 
         loadUser();
         loadKeys();
-        checkWorkshopStatus();
-        setInterval(checkWorkshopStatus, 15000);
+        checkOfficeStatus();
+        setInterval(checkOfficeStatus, 15000);
       })();
     </script>
   </body>

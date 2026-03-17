@@ -13,13 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { MenuButton } from "@/components/layout/NavSheet";
-import { GodotWorkshopFrame } from "@/components/GodotWorkshopFrame";
+import { GodotOfficeFrame } from "@/components/GodotOfficeFrame";
 import { useSessionsStore } from "@/store/sessions";
 import { useAuthStore } from "@/store/auth";
 import { RELAY_BASE } from "@/lib/config";
 import { api } from "@/lib/api";
 
-export function WorkshopPlaceholderPage() {
+export function OfficePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessions = useSessionsStore((s) => s.sessions);
@@ -33,7 +33,7 @@ export function WorkshopPlaceholderPage() {
   const [launchError, setLaunchError] = useState("");
 
   function onWorkerClick(sessionId: string) {
-    if (location.pathname !== "/workshop") return;
+    if (location.pathname !== "/office") return;
     navigate(`/terminal/${sessionId}`, {
       state: { backgroundLocation: location },
     });
@@ -90,9 +90,9 @@ export function WorkshopPlaceholderPage() {
           <MenuButton />
           <div>
             <p className="text-[0.65rem] font-medium uppercase tracking-widest text-muted-foreground">
-              AgentTown
+              AgentOffice
             </p>
-            <h1 className="text-lg font-bold leading-tight">Workshop</h1>
+            <h1 className="text-lg font-bold leading-tight">Office</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -124,7 +124,7 @@ export function WorkshopPlaceholderPage() {
 
       {/* Godot Frame */}
       <section className="flex-1">
-        <GodotWorkshopFrame
+        <GodotOfficeFrame
           connected={connected}
           sessions={sessions}
           onWorkerClick={onWorkerClick}

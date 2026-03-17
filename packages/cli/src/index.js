@@ -14,7 +14,7 @@ const {
   DEFAULT_LAN_HOST,
   DEFAULT_PORT,
   DEFAULT_SERVER_URL
-} = require("@agent-town/core");
+} = require("@agent-office/core");
 const {
   createPtyManager,
   defaultTransportForProvider,
@@ -26,13 +26,13 @@ const {
   hasClaudeHookConfig,
   networkUrls,
   resolveCommand,
-  listAgentTownSessions,
+  listAgentOfficeSessions,
   killSession,
   tmuxPath
-} = require("@agent-town/runtime");
+} = require("@agent-office/runtime");
 const { createTunnelClient } = require("./tunnel");
 
-const DEFAULT_RELAY_URL = "https://agenttown.cc";
+const DEFAULT_RELAY_URL = "https://agentoffice.top";
 
 function readEnvValue(name) {
   const value = process.env[name];
@@ -48,10 +48,10 @@ function resolveHostedOptions(options) {
   const optionRelay = typeof options.relay === "string" ? options.relay.trim() : "";
 
   return {
-    key: optionKey || readEnvValue("AGENTTOWN_API_KEY"),
-    relayUrl: optionRelay || readEnvValue("AGENTTOWN_RELAY_URL") || DEFAULT_RELAY_URL,
-    keySource: optionKey ? "--key" : readEnvValue("AGENTTOWN_API_KEY") ? "AGENTTOWN_API_KEY" : null,
-    relaySource: optionRelay ? "--relay" : readEnvValue("AGENTTOWN_RELAY_URL") ? "AGENTTOWN_RELAY_URL" : "default"
+    key: optionKey || readEnvValue("AGENTOFFICE_API_KEY"),
+    relayUrl: optionRelay || readEnvValue("AGENTOFFICE_RELAY_URL") || DEFAULT_RELAY_URL,
+    keySource: optionKey ? "--key" : readEnvValue("AGENTOFFICE_API_KEY") ? "AGENTOFFICE_API_KEY" : null,
+    relaySource: optionRelay ? "--relay" : readEnvValue("AGENTOFFICE_RELAY_URL") ? "AGENTOFFICE_RELAY_URL" : "default"
   };
 }
 
@@ -118,7 +118,7 @@ async function resolveAttachTarget({ target, server }) {
     return null;
   }
 
-  if (target.startsWith("agenttown_")) {
+  if (target.startsWith("agentoffice_")) {
     return target;
   }
 
@@ -148,7 +148,7 @@ async function main() {
   if (action === "start") {
     const nodePtySetup = ensureNodePtySpawnHelper();
     if (nodePtySetup.changed.length > 0) {
-      console.log(`AgentTown repaired node-pty spawn-helper permissions for ${nodePtySetup.changed.join(", ")}`);
+      console.log(`AgentOffice repaired node-pty spawn-helper permissions for ${nodePtySetup.changed.join(", ")}`);
     }
 
     const host = options.host || DEFAULT_LAN_HOST;
@@ -156,7 +156,7 @@ async function main() {
     const localServerUrl = `http://127.0.0.1:${port}`;
     const handlerPath = path.resolve(__dirname, "index.js");
 
-    console.log("AgentTown preflight");
+    console.log("AgentOffice preflight");
     console.log(`- tmux: ${commandExists("tmux") ? resolveCommand("tmux") : "missing"}`);
     console.log(`- claude: ${commandExists("claude") ? resolveCommand("claude") : "missing"}`);
     console.log(`- codex: ${commandExists("codex") ? resolveCommand("codex") : "missing"}`);
@@ -169,15 +169,15 @@ async function main() {
     }
 
     if (!commandExists("tmux")) {
-      throw new Error("tmux is required for AgentTown local sessions. Install it first, for example with `brew install tmux`.");
+      throw new Error("tmux is required for AgentOffice local sessions. Install it first, for example with `brew install tmux`.");
     }
 
     const store = createSessionStore();
     const ptyManager = createPtyManager({ store });
     const restored = ptyManager.restoreManagedSessions();
     createAppServer({ host, port, store, ptyManager });
-    console.log(`AgentTown restored ${restored.length} session(s).`);
-    console.log("AgentTown URLs");
+    console.log(`AgentOffice restored ${restored.length} session(s).`);
+    console.log("AgentOffice URLs");
     for (const url of networkUrls({ host, port })) {
       console.log(`- ${url}`);
     }
@@ -192,7 +192,7 @@ async function main() {
         relayUrl: hosted.relayUrl,
         localServerUrl
       });
-      console.log(`AgentTown tunnel connecting to relay: ${hosted.relayUrl}`);
+      console.log(`AgentOffice tunnel connecting to relay: ${hosted.relayUrl}`);
       console.log(`- hosted auth: key from ${hosted.keySource}, relay from ${hosted.relaySource}`);
       tunnel.sendStatusSummary(store.listSessionSummaries());
 
@@ -214,7 +214,7 @@ async function main() {
 
   if (action === "attach") {
     if (!commandExists("tmux")) {
-      throw new Error("tmux is required to attach to an AgentTown worker.");
+      throw new Error("tmux is required to attach to an AgentOffice worker.");
     }
 
     const target = subaction || command || options.session || options.id;
@@ -266,13 +266,13 @@ async function main() {
       console.log("No cleanup needed: tmux is not installed.");
       return;
     }
-    const sessions = listAgentTownSessions();
+    const sessions = listAgentOfficeSessions();
     const records = listSessionRecords();
     if (sessions.length === 0) {
       for (const record of records) {
         removeSessionRecord(record.sessionId);
       }
-      console.log(records.length > 0 ? `Removed ${records.length} stale AgentTown record(s).` : "No AgentTown tmux sessions found.");
+      console.log(records.length > 0 ? `Removed ${records.length} stale AgentOffice record(s).` : "No AgentOffice tmux sessions found.");
       return;
     }
     for (const sessionName of sessions) {
@@ -282,7 +282,7 @@ async function main() {
     for (const record of records) {
       removeSessionRecord(record.sessionId);
     }
-    console.log(`Cleanup complete. Removed ${sessions.length} AgentTown session(s).`);
+    console.log(`Cleanup complete. Removed ${sessions.length} AgentOffice session(s).`);
     return;
   }
 
@@ -324,7 +324,7 @@ async function main() {
         await postJson(`${server}/api/providers/claude/hook`, JSON.parse(input));
       }
     } catch (error) {
-      console.error(`AgentTown claude-hook ignored error: ${error.message}`);
+      console.error(`AgentOffice claude-hook ignored error: ${error.message}`);
     }
     return;
   }

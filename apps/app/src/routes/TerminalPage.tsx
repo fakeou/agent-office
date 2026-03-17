@@ -24,7 +24,7 @@ const isTouchDevice = typeof window !== "undefined" &&
 
 function AttachCopyButton({ sessionId }: { sessionId: string }) {
   const [copied, setCopied] = useState(false);
-  const text = `att attach ${sessionId}`;
+  const text = `ato attach ${sessionId}`;
 
   async function handleCopy() {
     await navigator.clipboard.writeText(text);
@@ -42,7 +42,7 @@ function AttachCopyButton({ sessionId }: { sessionId: string }) {
           onClick={() => void handleCopy()}
         >
           {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-          att attach
+          ato attach
         </Button>
       </TooltipTrigger>
       <TooltipContent>Copy attach command</TooltipContent>
@@ -282,7 +282,7 @@ export function TerminalPage() {
             size="icon"
             className="h-7 w-7 text-terminal-muted hover:text-terminal-text hover:bg-white/5"
             onClick={() =>
-              hasBackgroundLocation ? navigate(-1) : navigate("/workshop")
+              hasBackgroundLocation ? navigate(-1) : navigate("/office")
             }
           >
             <ArrowLeft className="h-4 w-4" />
@@ -368,10 +368,10 @@ export function TerminalPage() {
                 Attach command
               </p>
               <code className="block break-all font-mono text-[0.75rem] text-green-400">
-                att attach {sessionId}
+                ato attach {sessionId}
               </code>
               <CopyButton
-                text={`att attach ${sessionId}`}
+                text={`ato attach ${sessionId}`}
                 className="mt-2 w-full border-terminal-border text-terminal-muted hover:text-terminal-text hover:bg-white/5"
                 variant="outline"
               />

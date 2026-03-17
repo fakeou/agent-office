@@ -1,12 +1,12 @@
 const { createPtyManager, defaultTransportForProvider } = require("./pty-manager");
 const {
-  AGENTTOWN_TMUX_PREFIX,
+  AGENTOFFICE_TMUX_PREFIX,
   attachClient,
   capturePane,
   createTmuxSession,
   describePane,
   killSession,
-  listAgentTownSessions,
+  listAgentOfficeSessions,
   localAttachCommand,
   sessionExists,
   tmuxPath
@@ -30,13 +30,13 @@ const {
 module.exports = {
   createPtyManager,
   defaultTransportForProvider,
-  AGENTTOWN_TMUX_PREFIX,
+  AGENTOFFICE_TMUX_PREFIX,
   attachClient,
   capturePane,
   createTmuxSession,
   describePane,
   killSession,
-  listAgentTownSessions,
+  listAgentOfficeSessions,
   localAttachCommand,
   sessionExists,
   tmuxPath,

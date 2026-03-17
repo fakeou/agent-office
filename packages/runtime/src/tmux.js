@@ -2,7 +2,7 @@ const { spawnSync, spawn } = require("node:child_process");
 const crypto = require("node:crypto");
 const pty = require("node-pty");
 
-const AGENTTOWN_TMUX_PREFIX = "agenttown_";
+const AGENTOFFICE_TMUX_PREFIX = "agentoffice_";
 
 function tmuxPath() {
   return process.env.TMUX_BIN || "tmux";
@@ -59,8 +59,8 @@ function listSessions() {
     .filter(Boolean);
 }
 
-function listAgentTownSessions() {
-  return listSessions().filter((sessionName) => sessionName.startsWith(AGENTTOWN_TMUX_PREFIX));
+function listAgentOfficeSessions() {
+  return listSessions().filter((sessionName) => sessionName.startsWith(AGENTOFFICE_TMUX_PREFIX));
 }
 
 function sessionExists(sessionName) {
@@ -139,13 +139,13 @@ function localAttachCommand(sessionName) {
 }
 
 module.exports = {
-  AGENTTOWN_TMUX_PREFIX,
+  AGENTOFFICE_TMUX_PREFIX,
   attachClient,
   capturePane,
   createTmuxSession,
   describePane,
   killSession,
-  listAgentTownSessions,
+  listAgentOfficeSessions,
   localAttachCommand,
   sessionExists,
   tmuxPath

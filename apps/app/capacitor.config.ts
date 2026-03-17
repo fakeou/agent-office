@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'cc.agenttown.app',
-  appName: 'AgentTown',
+  appId: 'top.agentoffice.app',
+  appName: 'AgentOffice',
   webDir: 'dist'
 };
 

@@ -4,7 +4,7 @@ class_name WebBridge
 signal bridge_ready(handshake: Dictionary)
 signal message_received(message_type: String, payload: Variant, envelope: Dictionary)
 
-const BRIDGE_NAME := "agenttown-godot"
+const BRIDGE_NAME := "agentoffice-godot"
 
 @export var target_origin := "*"
 
@@ -60,21 +60,21 @@ func _setup_web_bridge() -> void:
 
 	_parent_window = _window.parent
 	_bridge_callback = JavaScriptBridge.create_callback(_on_js_message)
-	_window.__agenttownGodotDispatch = _bridge_callback
+	_window.__agentofficeGodotDispatch = _bridge_callback
 
 	JavaScriptBridge.eval(
 		"""
 		(function () {
-			if (window.__agenttownGodotBridgeInstalled) {
+			if (window.__agentofficeGodotBridgeInstalled) {
 				return;
 			}
-			window.__agenttownGodotBridgeInstalled = true;
+			window.__agentofficeGodotBridgeInstalled = true;
 			window.addEventListener("message", function (event) {
-				if (typeof window.__agenttownGodotDispatch !== "function") {
+				if (typeof window.__agentofficeGodotDispatch !== "function") {
 					return;
 				}
-				window.__agenttownGodotDispatch(JSON.stringify({
-					bridge: "agenttown-godot",
+				window.__agentofficeGodotDispatch(JSON.stringify({
+					bridge: "agentoffice-godot",
 					source: "parent",
 					origin: event.origin || "",
 					data: event.data

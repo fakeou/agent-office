@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="agent-town-map"
+config/name="agent-office-map"
 run/main_scene="uid://ckl5prcklg4qc"
 config/features=PackedStringArray("4.6", "Forward Plus")
 

@@ -1,4 +1,4 @@
-# AgentTown Phase 3 — PixelLab 资产提示词手册
+# AgentOffice Phase 3 — PixelLab 资产提示词手册
 
 > 所有资产基于 **Warm Atelier 暖工坊** 风格基调生成，保持与现有 Web UI 配色（暖棕米色系）的视觉一致性。
 > PixelLab 提示词均为英文，可直接粘贴使用。
@@ -299,7 +299,7 @@ high top-down view pixel art, zone entry arch or threshold marking, two small pi
 
 ## worker-00（默认角色）
 
-> 程序员形象，是 AgentTown 世界里所有 AI worker 的默认外观。
+> 程序员形象，是 AgentOffice 世界里所有 AI worker 的默认外观。
 
 ### 基础立绘 / 角色参考图
 

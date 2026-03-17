@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 
-const TOKEN_DIR = path.join(os.homedir(), ".agenttown");
+const TOKEN_DIR = path.join(os.homedir(), ".agentoffice");
 const TOKEN_PATH = path.join(TOKEN_DIR, "token");
 const TOKEN_BYTES = 32;
 
@@ -115,7 +115,7 @@ function recordAttempt(ip, success) {
 
 // --- Cookie helpers ---
 
-const COOKIE_NAME = "agenttown_token";
+const COOKIE_NAME = "agentoffice_token";
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
 
 function parseCookies(header) {

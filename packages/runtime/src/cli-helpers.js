@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const { printClaudeHooksConfig } = require("@agent-town/core");
+const { printClaudeHooksConfig } = require("@agent-office/core");
 
 function commandExists(command) {
   const result = spawnSync("/usr/bin/env", ["bash", "-lc", `command -v ${JSON.stringify(command)} >/dev/null 2>&1`]);

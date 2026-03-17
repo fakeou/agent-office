@@ -1,12 +1,12 @@
 {
-  "name": "@agent-town/relay",
+  "name": "@agent-office/relay",
   "version": "0.2.0",
   "private": true,
   "main": "src/index.js",
   "files": ["src"],
   "dependencies": {
-    "@agent-town/core": "workspace:*",
-    "@agent-town/web": "workspace:*",
+    "@agent-office/core": "workspace:*",
+    "@agent-office/web": "workspace:*",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.0",
     "ws": "^8.18.0"

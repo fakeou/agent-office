@@ -25,7 +25,7 @@ type KeyRecord = { id: string; keyPrefix: string; label?: string; createdAt?: st
 type KeysResponse = { keys: KeyRecord[] };
 type CreateKeyResponse = { key: string };
 
-const DEFAULT_RELAY_URL = "https://agenttown.cc";
+const DEFAULT_RELAY_URL = "https://agentoffice.top";
 
 function CopyInline({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -57,12 +57,12 @@ function CodeBlock({ code, label }: { code: string; label: string }) {
 function buildEnvSetupCommand(apiKey: string, relayUrl: string) {
   const lines = [`export AGENTTOWN_API_KEY=${apiKey}`];
   if (relayUrl !== DEFAULT_RELAY_URL) lines.push(`export AGENTTOWN_RELAY_URL=${relayUrl}`);
-  lines.push("att start");
+  lines.push("ato start");
   return lines.join("\n");
 }
 
 function buildFlagSetupCommand(apiKey: string, relayUrl: string) {
-  const parts = ["att", "start", "--key", apiKey];
+  const parts = ["ato", "start", "--key", apiKey];
   if (relayUrl !== DEFAULT_RELAY_URL) parts.push("--relay", relayUrl);
   return parts.join(" ");
 }
@@ -93,14 +93,14 @@ function SetupModal({
           </p>
           <CodeBlock code={apiKey} label="Current API Key" />
           <p className="text-sm text-muted-foreground">
-            Option A: export the key as an env variable, then run <code className="rounded bg-muted px-1 py-0.5 text-xs">att start</code>.
+            Option A: export the key as an env variable, then run <code className="rounded bg-muted px-1 py-0.5 text-xs">ato start</code>.
           </p>
           <CodeBlock code={envCommand} label="Export env and start" />
           <div className="text-center text-xs text-muted-foreground">or</div>
           <p className="text-sm text-muted-foreground">
             Option B: skip environment variables and run a single command.
           </p>
-          <CodeBlock code={flagCommand} label="att start --key" />
+          <CodeBlock code={flagCommand} label="ato start --key" />
         </div>
         <DialogFooter>
           <Button onClick={onClose}>Done</Button>
@@ -134,7 +134,7 @@ export function DashboardPage() {
     mutationFn: () =>
       api<CreateKeyResponse>("/api/keys", {
         method: "POST",
-        body: JSON.stringify({ label: "workshop" }),
+        body: JSON.stringify({ label: "office" }),
       }),
     onSuccess: async (data) => {
       setLatestKey(data.key);
@@ -234,7 +234,7 @@ export function DashboardPage() {
           <div className="px-5 py-3">
             <p className="text-xs leading-relaxed text-muted-foreground">
               Recommended: set <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">AGENTTOWN_API_KEY</code> and then run{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">att start</code>.
+              <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">ato start</code>.
               {!usesDefaultRelay && (
                 <> If you are not using the default hosted relay, also set <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">AGENTTOWN_RELAY_URL</code>.</>
               )}
@@ -262,7 +262,7 @@ export function DashboardPage() {
           {!keysQuery.isLoading && !keysQuery.isError && keys.length === 0 && (
             <div className="p-5 text-center">
               <p className="mb-3 text-sm text-muted-foreground">
-                No API key. Create one to connect <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">att start</code> to this relay.
+                No API key. Create one to connect <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">ato start</code> to this relay.
               </p>
               <Button
                 disabled={createKeyMutation.isPending}

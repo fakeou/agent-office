@@ -2,7 +2,7 @@ const http = require("node:http");
 const path = require("node:path");
 const express = require("express");
 const { WebSocketServer } = require("ws");
-const { STATIC_DIR } = require("@agent-town/web");
+const { STATIC_DIR } = require("@agent-office/web");
 const auth = require("./auth");
 
 function createAppServer({ host, port, store, ptyManager }) {
@@ -36,8 +36,8 @@ function createAppServer({ host, port, store, ptyManager }) {
     return Boolean(cookieToken && auth.verifyToken(cookieToken));
   }
 
-  function sendWorkshopShell(res) {
-    res.sendFile(path.join(STATIC_DIR, "workshop.html"));
+  function sendOfficeShell(res) {
+    res.sendFile(path.join(STATIC_DIR, "office.html"));
   }
 
   app.use((req, res, next) => {
@@ -103,11 +103,11 @@ function createAppServer({ host, port, store, ptyManager }) {
   });
 
   app.get("/", (_req, res) => {
-    sendWorkshopShell(res);
+    sendOfficeShell(res);
   });
 
   app.get("/index.html", (_req, res) => {
-    sendWorkshopShell(res);
+    sendOfficeShell(res);
   });
 
   app.use(express.static(STATIC_DIR, { index: false }));
@@ -151,7 +151,7 @@ function createAppServer({ host, port, store, ptyManager }) {
   });
 
   app.get("*", (_req, res) => {
-    sendWorkshopShell(res);
+    sendOfficeShell(res);
   });
 
   const server = http.createServer(app);
@@ -197,7 +197,7 @@ function createAppServer({ host, port, store, ptyManager }) {
   });
 
   server.listen(port, host, () => {
-    console.log(`AgentTown listening on http://${host}:${port}`);
+    console.log(`AgentOffice listening on http://${host}:${port}`);
   });
 
   return server;

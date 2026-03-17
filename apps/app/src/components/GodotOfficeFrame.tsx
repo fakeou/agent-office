@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { GODOT_WORKSHOP_URL } from "@/lib/config";
+import { GODOT_OFFICE_URL } from "@/lib/config";
 import {
   GodotSessionsSyncPayload,
   mapSessionToGodotWorker,
@@ -9,18 +9,18 @@ import {
 } from "@/lib/godotBridge";
 import type { Session } from "@/store/sessions";
 
-interface GodotWorkshopFrameProps {
+interface GodotOfficeFrameProps {
   connected: boolean;
   sessions: Session[];
   onWorkerClick?: (sessionId: string) => void;
 }
 
-export function GodotWorkshopFrame({ connected, sessions, onWorkerClick }: GodotWorkshopFrameProps) {
+export function GodotOfficeFrame({ connected, sessions, onWorkerClick }: GodotOfficeFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  const visibleSessions = sessions.filter((session) => session.visibleInWorkshop);
-  const targetOrigin = resolveGodotTargetOrigin(GODOT_WORKSHOP_URL);
-  const hasIframeSource = Boolean(GODOT_WORKSHOP_URL);
+  const visibleSessions = sessions.filter((session) => session.visibleInOffice);
+  const targetOrigin = resolveGodotTargetOrigin(GODOT_OFFICE_URL);
+  const hasIframeSource = Boolean(GODOT_OFFICE_URL);
 
   function postToGodot(type: string, payload: unknown, meta?: Record<string, unknown>, requestId?: string) {
     const targetWindow = iframeRef.current?.contentWindow;
@@ -85,7 +85,7 @@ export function GodotWorkshopFrame({ connected, sessions, onWorkerClick }: Godot
           <div>
             <strong className="text-sm font-semibold text-foreground">Godot export URL is not configured.</strong>
             <p className="mt-1 text-xs text-muted-foreground">
-              Set <code className="rounded bg-muted px-1 py-0.5">VITE_GODOT_WORKSHOP_URL</code> to the exported HTML entrypoint.
+              Set <code className="rounded bg-muted px-1 py-0.5">VITE_GODOT_OFFICE_URL</code> to the exported HTML entrypoint.
             </p>
           </div>
         </div>
@@ -93,8 +93,8 @@ export function GodotWorkshopFrame({ connected, sessions, onWorkerClick }: Godot
         <iframe
           ref={iframeRef}
           className="absolute inset-0 h-full w-full border-0"
-          src={GODOT_WORKSHOP_URL}
-          title="AgentTown Godot Workshop"
+          src={GODOT_OFFICE_URL}
+          title="AgentOffice Godot Office"
           allow="fullscreen"
         />
       )}
