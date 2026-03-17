@@ -11,11 +11,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ArrowLeft, Copy, Check } from "lucide-react";
 import { MenuButton } from "@/components/layout/NavSheet";
 import { CopyButton } from "@/components/shared/CopyButton";
+import { MobileKeybar } from "@/components/shared/MobileKeybar";
 import { TerminalLoading } from "@/components/shared/TerminalLoading";
 import { getRelayWsQuery } from "@/lib/relay-ws";
 import { useAuthStore } from "@/store/auth";
 import { useSessionsStore } from "@/store/sessions";
 import { RELAY_BASE } from "@/lib/config";
+
+const isTouchDevice = typeof window !== "undefined" &&
+  ("ontouchstart" in window || navigator.maxTouchPoints > 0);
 
 function AttachCopyButton({ sessionId }: { sessionId: string }) {
   const [copied, setCopied] = useState(false);
@@ -67,7 +71,9 @@ export function TerminalPage() {
   );
 
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const sendInputRef = useRef<(data: string) => void>(() => {});
   const reconnDelay = useRef(1000);
   const reconnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disposed = useRef(false);
@@ -78,6 +84,9 @@ export function TerminalPage() {
     if (!hostRef.current || !sessionId || !userId) return;
     disposed.current = false;
     setTermReady(false);
+
+    // Start wsToken fetch immediately (parallel with font load + term setup)
+    const wsTokenPromise = getRelayWsQuery(token).catch(() => "");
 
     const term = new Terminal({
       cursorBlink: true,
@@ -121,13 +130,21 @@ export function TerminalPage() {
       }
     });
 
+    // Expose sendInput for MobileKeybar
+    sendInputRef.current = (data: string) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "input", data }));
+      }
+    };
+
     let gotFirstData = false;
 
     async function connect() {
       if (disposed.current) return;
       const wsBase = RELAY_BASE.replace(/^http/, "ws");
+      // Reuse the pre-fetched wsToken (0 extra RTT)
       let authQuery = "";
-      try { authQuery = await getRelayWsQuery(token); } catch { return; }
+      try { authQuery = await wsTokenPromise; } catch { return; }
       if (disposed.current) return;
 
       const url = authQuery
@@ -177,25 +194,40 @@ export function TerminalPage() {
     let ro: ResizeObserver | null = null;
     const handleWindowResize = () => scheduleFit();
 
-    function tryOpen() {
+    async function tryOpen() {
       if (disposed.current || !hostRef.current) return;
       const { width, height } = hostRef.current.getBoundingClientRect();
-      if (width > 0 && height > 0) {
-        term.open(hostRef.current);
-        try { term.loadAddon(new WebglAddon()); } catch { /* fallback */ }
-        ro = new ResizeObserver(() => scheduleFit());
-        ro.observe(hostRef.current);
-        window.addEventListener("resize", handleWindowResize);
-        scheduleFit();
-      } else {
+      if (width <= 0 || height <= 0) {
         rafRef.current = requestAnimationFrame(tryOpen);
+        return;
       }
+
+      // Wait for IBM Plex Mono to load so character cell measurements are accurate
+      await document.fonts.load('13px "IBM Plex Mono"').catch(() => {});
+
+      if (disposed.current || !hostRef.current) return;
+
+      term.open(hostRef.current);
+
+      // Use canvas 2D on touch devices; WebGL on desktop
+      if (!isTouchDevice) {
+        try { term.loadAddon(new WebglAddon()); } catch { /* canvas fallback */ }
+      }
+
+      ro = new ResizeObserver(() => scheduleFit());
+      ro.observe(hostRef.current);
+      window.addEventListener("resize", handleWindowResize);
+      scheduleFit();
+
+      // Re-fit after all font weights finish loading
+      document.fonts.ready.then(() => scheduleFit());
     }
 
     rafRef.current = requestAnimationFrame(tryOpen);
 
     return () => {
       disposed.current = true;
+      sendInputRef.current = () => {};
       ro?.disconnect();
       window.removeEventListener("resize", handleWindowResize);
       if (reconnTimer.current) clearTimeout(reconnTimer.current);
@@ -260,7 +292,24 @@ export function TerminalPage() {
         {/* Terminal */}
         <section className="relative flex min-h-0 flex-col overflow-hidden">
           {!termReady && <TerminalLoading />}
-          <div className="h-0 flex-1 overflow-hidden p-1" ref={hostRef} />
+          <div
+            className="h-0 flex-1 overflow-hidden p-1"
+            ref={hostRef}
+            onClick={() => isTouchDevice && hiddenInputRef.current?.focus()}
+          />
+          {isTouchDevice && (
+            <>
+              <textarea
+                ref={hiddenInputRef}
+                style={{ position: "absolute", opacity: 0, width: 1, height: 1, top: 0, left: 0, pointerEvents: "none" }}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                readOnly
+              />
+              <MobileKeybar onKey={(data) => sendInputRef.current(data)} />
+            </>
+          )}
         </section>
 
         {/* Sidebar - PC only */}
