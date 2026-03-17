@@ -2,13 +2,13 @@
 
 **A local-first AI office supervisor for Claude, Codex, and other terminal coding agents.**
 
-AgentOffice runs on your machine and gives you a real-time dashboard where every running AI agent appears as a worker in a shared office. Launch agents, watch their state change live, and open a full-screen terminal for any session — from any browser on your network.
+AgentOffice runs on your machine and turns every running AI agent into an employee on a shared office floor. Each agent appears as a live worker with a real-time status — `idle`, `working`, `approval`, or `attention` — so you can see at a glance who is busy, who needs a decision, and who is waiting. Open a full-screen terminal for any employee from any browser on your network.
 
 ---
 
 ## What It Does
 
-- **Visualizes AI agents** — each session appears as a worker card with live state: `idle`, `working`, `approval`, or `attention`
+- **Visualizes AI agents as employees** — each session appears as a live worker on the office floor with real-time status: `idle`, `working`, `approval`, or `attention`
 - **Manages sessions** — launch agents from the CLI or web UI; sessions persist via tmux and survive disconnects
 - **Shared terminal** — click any worker to open a full-screen xterm.js terminal, shared across local and browser clients over WebSocket
 - **Remote access** — connect a relay server and access your office from anywhere
@@ -19,7 +19,7 @@ AgentOffice runs on your machine and gives you a real-time dashboard where every
 ## Install
 
 ```bash
-npm i -g agent-office
+npm i -g agent-office-cli
 ```
 
 **Requirements:** Node.js 18+, tmux (`brew install tmux`), Claude Code or Codex CLI if you plan to use those providers.
@@ -61,6 +61,19 @@ Your office is now accessible from the AgentOffice dashboard at [agentoffice.top
 
 ---
 
+## Worker States
+
+Each employee on the office floor is always in one of four states:
+
+| State | Meaning |
+|-------|---------|
+| `idle` | The agent is waiting for a task |
+| `working` | The agent is actively running a task |
+| `approval` | The agent is waiting for your permission to proceed |
+| `attention` | The agent encountered an error or needs your input |
+
+---
+
 ## CLI Reference
 
 | Command | Description |
@@ -81,6 +94,16 @@ By default, `ato start` connects to the AgentOffice public relay at `agentoffice
 ```bash
 ato start --key sk_your_api_key --relay https://your-relay.example.com
 ```
+
+---
+
+## Documentation
+
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — Development roadmap and feature checklist
+- [`docs/PROJECT_NOTES.md`](docs/PROJECT_NOTES.md) — Architecture, state model, and provider notes
+- [`docs/TEST_GUIDE.md`](docs/TEST_GUIDE.md) — UI testing guide
+- [`docs/PHASE3_RESEARCH.md`](docs/PHASE3_RESEARCH.md) — Phase 3 pixel-art world design research
+- [`docs/PHASE3_ASSETS.md`](docs/PHASE3_ASSETS.md) — Phase 3 asset generation prompts
 
 ---
 
