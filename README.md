@@ -18,11 +18,17 @@ AgentOffice runs on your machine and turns every running AI agent into an employ
 
 ## Install
 
+**CLI (macOS / Linux)**
+
 ```bash
 npm i -g agent-office-cli
 ```
 
 **Requirements:** Node.js 18+, tmux (`brew install tmux`), Claude Code or Codex CLI if you plan to use those providers.
+
+**Android App**
+
+Download the latest APK from [Releases](https://github.com/fakeou/agent-office/releases).
 
 ---
 
