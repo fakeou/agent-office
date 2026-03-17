@@ -28,8 +28,8 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   if (response.status === 401) {
     clearAuth();
     const message =
-      typeof payload === "string"
-        ? payload || "unauthorized"
+      typeof payload === "string" && payload
+        ? payload
         : typeof payload?.error === "string"
           ? payload.error
           : "unauthorized";
@@ -38,7 +38,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   if (!response.ok) {
     const message =
-      typeof payload === "string"
+      typeof payload === "string" && payload
         ? payload
         : typeof payload?.error === "string"
           ? payload.error

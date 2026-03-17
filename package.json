@@ -10,6 +10,7 @@
     "app:dev": "pnpm --filter @agent-town/app dev",
     "app:build": "pnpm --filter @agent-town/app build",
     "app:preview": "pnpm --filter @agent-town/app preview",
+    "app:android": "pnpm app:build && pnpm --filter @agent-town/app exec npx cap sync android",
     "cli:start": "node packages/cli/src/index.js start",
     "cli:codex": "node packages/cli/src/index.js codex",
     "cli:claude": "node packages/cli/src/index.js claude",

@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
-import { GODOT_WORKSHOP_URL } from "../lib/config";
+import { GODOT_WORKSHOP_URL } from "@/lib/config";
 import {
   GodotSessionsSyncPayload,
   mapSessionToGodotWorker,
   parseGodotBridgeMessage,
   resolveGodotTargetOrigin,
-  serializeGodotBridgeMessage
-} from "../lib/godotBridge";
-import type { Session } from "../store/sessions";
+  serializeGodotBridgeMessage,
+} from "@/lib/godotBridge";
+import type { Session } from "@/store/sessions";
 
 interface GodotWorkshopFrameProps {
   connected: boolean;
@@ -24,18 +24,9 @@ export function GodotWorkshopFrame({ connected, sessions, onWorkerClick }: Godot
 
   function postToGodot(type: string, payload: unknown, meta?: Record<string, unknown>, requestId?: string) {
     const targetWindow = iframeRef.current?.contentWindow;
-    if (!targetWindow) {
-      return;
-    }
-
+    if (!targetWindow) return;
     targetWindow.postMessage(
-      serializeGodotBridgeMessage({
-        source: "app",
-        type,
-        payload,
-        meta,
-        requestId
-      }),
+      serializeGodotBridgeMessage({ source: "app", type, payload, meta, requestId }),
       targetOrigin,
     );
   }
@@ -45,49 +36,36 @@ export function GodotWorkshopFrame({ connected, sessions, onWorkerClick }: Godot
       connected,
       workerCount: visibleSessions.length,
       sessions: visibleSessions.map(mapSessionToGodotWorker),
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
     };
     postToGodot("sync_sessions", payload);
   }
 
   useEffect(() => {
-    if (!hasIframeSource) {
-      return undefined;
-    }
+    if (!hasIframeSource) return undefined;
 
     function handleWindowMessage(event: MessageEvent) {
-      if (!iframeRef.current?.contentWindow || event.source !== iframeRef.current.contentWindow) {
-        return;
-      }
-      if (targetOrigin !== "*" && event.origin !== targetOrigin) {
-        return;
-      }
+      if (!iframeRef.current?.contentWindow || event.source !== iframeRef.current.contentWindow) return;
+      if (targetOrigin !== "*" && event.origin !== targetOrigin) return;
 
       const message = parseGodotBridgeMessage(event.data);
-      if (!message || message.source !== "godot") {
-        return;
-      }
+      if (!message || message.source !== "godot") return;
 
       if (message.type === "ready") {
         postToGodot("set_target_origin", { origin: window.location.origin }, { reason: "handshake" });
         syncSessionsToGodot();
         return;
       }
-
       if (message.type === "request_sessions") {
         syncSessionsToGodot();
         return;
       }
-
       if (message.type === "worker_click" || message.type === "open_terminal") {
         const sessionId =
           message.payload && typeof message.payload === "object" && "sessionId" in message.payload
             ? message.payload.sessionId
             : null;
-
-        if (typeof sessionId === "string" && sessionId) {
-          onWorkerClick?.(sessionId);
-        }
+        if (typeof sessionId === "string" && sessionId) onWorkerClick?.(sessionId);
       }
     }
 
@@ -96,29 +74,29 @@ export function GodotWorkshopFrame({ connected, sessions, onWorkerClick }: Godot
   }, [hasIframeSource, onWorkerClick, targetOrigin, connected, visibleSessions]);
 
   useEffect(() => {
-    if (!hasIframeSource) {
-      return;
-    }
+    if (!hasIframeSource) return;
     syncSessionsToGodot();
   }, [hasIframeSource, connected, visibleSessions]);
 
   return (
-    <div className="godot-frame-shell">
+    <div className="relative isolate z-0 w-full overflow-hidden bg-[#111]" style={{ aspectRatio: "9/10" }}>
       {!hasIframeSource ? (
-        <div className="godot-frame-placeholder">
-          <strong>Godot export URL is not configured.</strong>
-          <p>Set `VITE_GODOT_WORKSHOP_URL` to the exported HTML entrypoint for the workshop iframe.</p>
+        <div className="flex h-full items-center justify-center p-8 text-center">
+          <div>
+            <strong className="text-sm font-semibold text-foreground">Godot export URL is not configured.</strong>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Set <code className="rounded bg-muted px-1 py-0.5">VITE_GODOT_WORKSHOP_URL</code> to the exported HTML entrypoint.
+            </p>
+          </div>
         </div>
       ) : (
-        <>
-          <iframe
-            ref={iframeRef}
-            className="godot-frame"
-            src={GODOT_WORKSHOP_URL}
-            title="AgentTown Godot Workshop"
-            allow="fullscreen"
-          />
-        </>
+        <iframe
+          ref={iframeRef}
+          className="absolute inset-0 h-full w-full border-0"
+          src={GODOT_WORKSHOP_URL}
+          title="AgentTown Godot Workshop"
+          allow="fullscreen"
+        />
       )}
     </div>
   );

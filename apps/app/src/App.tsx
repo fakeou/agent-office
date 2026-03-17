@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { RootRedirect } from "./routes/RootRedirect";
 import { AuthPage } from "./routes/AuthPage";
@@ -6,7 +6,9 @@ import { DashboardPage } from "./routes/DashboardPage";
 import { WorkshopPlaceholderPage } from "./routes/WorkshopPlaceholderPage";
 import { TerminalPage } from "./routes/TerminalPage";
 import { SessionsRuntime } from "./components/SessionsRuntime";
-import { NavProvider } from "./components/NavSidebar";
+import { NavProvider } from "./components/layout/NavSheet";
+import { SplashScreen } from "./components/splash/SplashScreen";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuthStore } from "./store/auth";
 import { hasValidJwt } from "./lib/jwt";
 
@@ -64,9 +66,15 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [splashDone, setSplashDone] = useState(false);
+  const handleSplashComplete = useCallback(() => setSplashDone(true), []);
+
   return (
-    <NavProvider>
-      <AppRoutes />
-    </NavProvider>
+    <TooltipProvider>
+      <NavProvider>
+        {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
+        <AppRoutes />
+      </NavProvider>
+    </TooltipProvider>
   );
 }

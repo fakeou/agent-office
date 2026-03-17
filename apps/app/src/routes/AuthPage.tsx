@@ -1,18 +1,17 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
-import { hasValidJwt } from "../lib/jwt";
-import { loadTurnstileScript } from "../lib/turnstile";
-import { useAuthStore } from "../store/auth";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
+import { hasValidJwt } from "@/lib/jwt";
+import { loadTurnstileScript } from "@/lib/turnstile";
+import { useAuthStore } from "@/store/auth";
 
-type PublicConfig = {
-  turnstileSiteKey: string;
-};
-
-type AuthPayload = {
-  token: string;
-  userId: string;
-};
+type PublicConfig = { turnstileSiteKey: string };
+type AuthPayload = { token: string; userId: string };
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -32,9 +31,7 @@ export function AuthPage() {
   const registerEmailRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (hasValidJwt(token)) {
-      navigate("/dashboard", { replace: true });
-    }
+    if (hasValidJwt(token)) navigate("/workshop", { replace: true });
   }, [navigate, token]);
 
   useEffect(() => {
@@ -44,42 +41,29 @@ export function AuthPage() {
   }, []);
 
   useEffect(() => {
-    if (!publicConfig.turnstileSiteKey || !turnstileRef.current) {
-      return;
-    }
-
+    if (!publicConfig.turnstileSiteKey || !turnstileRef.current) return;
     let disposed = false;
-
     loadTurnstileScript()
       .then(() => {
-        if (disposed || !window.turnstile || !turnstileRef.current || widgetIdRef.current) {
-          return;
-        }
-
+        if (disposed || !window.turnstile || !turnstileRef.current || widgetIdRef.current) return;
         widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
           sitekey: publicConfig.turnstileSiteKey,
           theme: "light",
           callback: (value: string) => setTurnstileToken(value),
-          "expired-callback": () => setTurnstileToken("")
+          "expired-callback": () => setTurnstileToken(""),
         });
       })
       .catch(() => {});
-
-    return () => {
-      disposed = true;
-    };
+    return () => { disposed = true; };
   }, [publicConfig.turnstileSiteKey]);
 
   useEffect(() => {
-    if (!countdown) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => setCountdown((value) => Math.max(0, value - 1)), 1000);
+    if (!countdown) return;
+    const timer = window.setTimeout(() => setCountdown((v) => Math.max(0, v - 1)), 1000);
     return () => window.clearTimeout(timer);
   }, [countdown]);
 
-  const registerTitle = useMemo(
+  const subtitle = useMemo(
     () =>
       mode === "register"
         ? "Create account and get your workshop online."
@@ -91,20 +75,18 @@ export function AuthPage() {
     event.preventDefault();
     setError("");
     setLoginPending(true);
-
     const formData = new FormData(event.currentTarget);
-
     try {
       const payload = await api<AuthPayload>("/api/auth/login", {
         method: "POST",
         authenticated: false,
         body: JSON.stringify({
           email: String(formData.get("email") || "").trim(),
-          password: String(formData.get("password") || "")
-        })
+          password: String(formData.get("password") || ""),
+        }),
       });
       setAuth(payload);
-      navigate("/dashboard", { replace: true });
+      navigate("/workshop", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");
     } finally {
@@ -113,22 +95,14 @@ export function AuthPage() {
   }
 
   async function handleSendCode(email: string) {
-    if (!email) {
-      setError("Please enter your email first.");
-      return;
-    }
-
+    if (!email) { setError("Please enter your email first."); return; }
     setError("");
     setSendCodePending(true);
-
     try {
       await api<{ ok: boolean }>("/api/auth/send-code", {
         method: "POST",
         authenticated: false,
-        body: JSON.stringify({
-          email,
-          turnstileToken
-        })
+        body: JSON.stringify({ email, turnstileToken }),
       });
       setCodeSent(true);
       setCountdown(60);
@@ -146,15 +120,9 @@ export function AuthPage() {
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-
-    if (!codeSent) {
-      setError("Send the email verification code before creating an account.");
-      return;
-    }
-
+    if (!codeSent) { setError("Send the email verification code before creating an account."); return; }
     setRegisterPending(true);
     const formData = new FormData(event.currentTarget);
-
     try {
       const payload = await api<AuthPayload>("/api/auth/register", {
         method: "POST",
@@ -163,11 +131,11 @@ export function AuthPage() {
           email: String(formData.get("email") || "").trim(),
           password: String(formData.get("password") || ""),
           displayName: String(formData.get("displayName") || "").trim(),
-          code: String(formData.get("code") || "").trim()
-        })
+          code: String(formData.get("code") || "").trim(),
+        }),
       });
       setAuth(payload);
-      navigate("/dashboard", { replace: true });
+      navigate("/workshop", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
@@ -176,114 +144,115 @@ export function AuthPage() {
   }
 
   return (
-    <div className="page-shell auth-shell">
-      <section className="auth-panel">
-        <div className="brand-mark">AT</div>
-        <p className="eyebrow">AgentTown App</p>
-        <h1 className="page-title">React shell for auth now, Pixi workshop next.</h1>
-        <p className="page-copy">{registerTitle}</p>
-
-        <div className="mode-tabs" role="tablist" aria-label="Authentication modes">
-          <button
-            className={`mode-tab ${mode === "login" ? "active" : ""}`}
-            onClick={() => setMode("login")}
-            type="button"
-          >
-            Login
-          </button>
-          <button
-            className={`mode-tab ${mode === "register" ? "active" : ""}`}
-            onClick={() => setMode("register")}
-            type="button"
-          >
-            Register
-          </button>
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="w-full max-w-[420px]">
+        {/* Brand */}
+        <div className="mb-6">
+          <div className="mb-4 grid h-11 w-11 place-items-center rounded-lg bg-foreground text-background text-xs font-bold tracking-wider">
+            AT
+          </div>
+          <p className="text-[0.7rem] font-medium uppercase tracking-widest text-muted-foreground">
+            AgentTown App
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">
+            React shell for auth now, Pixi workshop next.
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
         </div>
 
-        {error ? <div className="message error">{error}</div> : null}
-
-        {mode === "login" ? (
-          <form className="panel-card form-grid" onSubmit={handleLogin}>
-            <label className="field">
-              <span>Email</span>
-              <input name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
-            </label>
-            <label className="field">
-              <span>Password</span>
-              <input
-                name="password"
-                type="password"
-                placeholder="Your password"
-                autoComplete="current-password"
-                required
-              />
-            </label>
-            <button className="primary-button" type="submit" disabled={loginPending}>
-              {loginPending ? "Signing in..." : "Log In"}
-            </button>
-          </form>
-        ) : (
-          <form className="panel-card form-grid" onSubmit={handleRegister}>
-            <label className="field">
-              <span>Email</span>
-              <div className="inline-action">
-                <input
-                  ref={registerEmailRef}
-                  name="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  required
-                />
-                <button
-                  className="secondary-button"
-                  type="button"
-                  disabled={sendCodePending || countdown > 0}
-                  onClick={() => {
-                    void handleSendCode(registerEmailRef.current?.value.trim() || "");
-                  }}
-                >
-                  {sendCodePending ? "Sending..." : countdown > 0 ? `${countdown}s` : "Send Code"}
-                </button>
-              </div>
-            </label>
-
-            {publicConfig.turnstileSiteKey ? (
-              <div className="turnstile-slot" ref={turnstileRef} />
-            ) : null}
-
-            <label className="field">
-              <span>Verification Code</span>
-              <input
-                name="code"
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="6-digit code"
-                autoComplete="one-time-code"
-                required
-              />
-            </label>
-            <label className="field">
-              <span>Password</span>
-              <input
-                name="password"
-                type="password"
-                placeholder="Create a password"
-                autoComplete="new-password"
-                required
-              />
-            </label>
-            <label className="field">
-              <span>Display Name</span>
-              <input name="displayName" type="text" placeholder="Optional" autoComplete="nickname" />
-            </label>
-            <button className="primary-button" type="submit" disabled={registerPending}>
-              {registerPending ? "Creating..." : codeSent ? "Create Account" : "Send Code First"}
-            </button>
-          </form>
+        {/* Error */}
+        {error && (
+          <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+            {error}
+          </div>
         )}
-      </section>
+
+        {/* Tabs */}
+        <Tabs
+          defaultValue="login"
+          value={mode}
+          onValueChange={(v) => setMode(v as "login" | "register")}
+        >
+          <TabsList className="mb-4 w-full">
+            <TabsTrigger value="login" className="flex-1">Login</TabsTrigger>
+            <TabsTrigger value="register" className="flex-1">Register</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="login">
+            <Card>
+              <CardContent className="pt-6">
+                <form className="grid gap-4" onSubmit={handleLogin}>
+                  <div className="grid gap-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input id="login-email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <Input id="login-password" name="password" type="password" placeholder="Your password" autoComplete="current-password" required />
+                  </div>
+                  <Button type="submit" disabled={loginPending} className="w-full">
+                    {loginPending ? "Signing in..." : "Log In"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="register">
+            <Card>
+              <CardContent className="pt-6">
+                <form className="grid gap-4" onSubmit={handleRegister}>
+                  <div className="grid gap-2">
+                    <Label htmlFor="reg-email">Email</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        ref={registerEmailRef}
+                        id="reg-email"
+                        name="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        autoComplete="email"
+                        required
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        disabled={sendCodePending || countdown > 0}
+                        onClick={() => void handleSendCode(registerEmailRef.current?.value.trim() || "")}
+                      >
+                        {sendCodePending ? "Sending..." : countdown > 0 ? `${countdown}s` : "Send Code"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {publicConfig.turnstileSiteKey && (
+                    <div className="turnstile-slot" ref={turnstileRef} />
+                  )}
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="reg-code">Verification Code</Label>
+                    <Input id="reg-code" name="code" type="text" inputMode="numeric" maxLength={6} placeholder="6-digit code" autoComplete="one-time-code" required />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="reg-password">Password</Label>
+                    <Input id="reg-password" name="password" type="password" placeholder="Create a password" autoComplete="new-password" required />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="reg-name">Display Name</Label>
+                    <Input id="reg-name" name="displayName" type="text" placeholder="Optional" autoComplete="nickname" />
+                  </div>
+                  <Button type="submit" disabled={registerPending} className="w-full">
+                    {registerPending ? "Creating..." : codeSent ? "Create Account" : "Send Code First"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

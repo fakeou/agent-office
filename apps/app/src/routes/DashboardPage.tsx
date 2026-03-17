@@ -1,116 +1,112 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api";
-import { RELAY_BASE } from "../lib/config";
-import { useAuthStore } from "../store/auth";
-import { MenuButton } from "../components/NavSidebar";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Copy, Check, Trash2 } from "lucide-react";
+import { MenuButton } from "@/components/layout/NavSheet";
+import { api } from "@/lib/api";
+import { RELAY_BASE } from "@/lib/config";
+import { useAuthStore } from "@/store/auth";
 
-type User = {
-  email: string;
-  displayName?: string;
-};
-
-type KeyRecord = {
-  id: string;
-  keyPrefix: string;
-  label?: string;
-  createdAt?: string;
-};
-
-type KeysResponse = {
-  keys: KeyRecord[];
-};
-
-type CreateKeyResponse = {
-  key: string;
-};
+type User = { email: string; displayName?: string };
+type KeyRecord = { id: string; keyPrefix: string; label?: string; createdAt?: string };
+type KeysResponse = { keys: KeyRecord[] };
+type CreateKeyResponse = { key: string };
 
 const DEFAULT_RELAY_URL = "https://agenttown.cc";
 
-function CopyButton({ text, label = "Copy", disabled = false }: { text: string; label?: string; disabled?: boolean }) {
+function CopyInline({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-
   async function handleCopy() {
-    if (disabled) {
-      return;
-    }
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
-
   return (
-    <button className="db-copy-btn db-copy-btn--inline" type="button" onClick={() => void handleCopy()} disabled={disabled}>
-      {copied ? "Copied!" : label}
-    </button>
+    <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" onClick={() => void handleCopy()}>
+      {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+      {copied ? "Copied!" : "Copy"}
+    </Button>
   );
 }
 
 function CodeBlock({ code, label }: { code: string; label: string }) {
   return (
-    <div className="db-setup-step">
-      <div className="db-setup-step-head">
-        <span>{label}</span>
-        <CopyButton text={code} />
+    <div className="rounded-lg border bg-muted/50 overflow-hidden">
+      <div className="flex items-center justify-between border-b px-3 py-2">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <CopyInline text={code} />
       </div>
-      <div className="db-cmd-block">
-        <pre className="db-cmd-pre">{code}</pre>
-      </div>
+      <pre className="overflow-x-auto p-3 font-mono text-xs leading-relaxed text-foreground">{code}</pre>
     </div>
   );
 }
 
 function buildEnvSetupCommand(apiKey: string, relayUrl: string) {
   const lines = [`export AGENTTOWN_API_KEY=${apiKey}`];
-  if (relayUrl !== DEFAULT_RELAY_URL) {
-    lines.push(`export AGENTTOWN_RELAY_URL=${relayUrl}`);
-  }
+  if (relayUrl !== DEFAULT_RELAY_URL) lines.push(`export AGENTTOWN_RELAY_URL=${relayUrl}`);
   lines.push("att start");
   return lines.join("\n");
 }
 
 function buildFlagSetupCommand(apiKey: string, relayUrl: string) {
   const parts = ["att", "start", "--key", apiKey];
-  if (relayUrl !== DEFAULT_RELAY_URL) {
-    parts.push("--relay", relayUrl);
-  }
+  if (relayUrl !== DEFAULT_RELAY_URL) parts.push("--relay", relayUrl);
   return parts.join(" ");
 }
 
-function buildTemplateEnvCommand(relayUrl: string) {
-  return buildEnvSetupCommand("<your_api_key>", relayUrl);
-}
-
-function buildTemplateFlagCommand(relayUrl: string) {
-  return buildFlagSetupCommand("<your_api_key>", relayUrl);
-}
-
-function SetupModal({ apiKey, relayUrl, onClose }: { apiKey: string; relayUrl: string; onClose: () => void }) {
+function SetupModal({
+  apiKey,
+  relayUrl,
+  open,
+  onClose,
+}: {
+  apiKey: string;
+  relayUrl: string;
+  open: boolean;
+  onClose: () => void;
+}) {
   const envCommand = buildEnvSetupCommand(apiKey, relayUrl);
-  const oneShotCommand = buildFlagSetupCommand(apiKey, relayUrl);
+  const flagCommand = buildFlagSetupCommand(apiKey, relayUrl);
 
   return (
-    <div className="db-modal-backdrop" onClick={onClose}>
-      <div className="db-modal" onClick={(event) => event.stopPropagation()}>
-        <div className="db-modal-head">
-          <span className="db-modal-title">API Key Created</span>
-          <button className="db-modal-close" type="button" onClick={onClose} aria-label="Close">×</button>
-        </div>
-        <div className="db-modal-body">
-          <p className="db-modal-notice">Each account can have only one API key. Save it now. To generate a new one later, delete the current key first.</p>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>API Key Created</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            Each account can have only one API key. Save it now. To generate a new one later, delete the current key first.
+          </p>
           <CodeBlock code={apiKey} label="Current API Key" />
-          <p className="db-modal-copy">Option A: export the key as an environment variable, then run <code>att start</code>.</p>
+          <p className="text-sm text-muted-foreground">
+            Option A: export the key as an env variable, then run <code className="rounded bg-muted px-1 py-0.5 text-xs">att start</code>.
+          </p>
           <CodeBlock code={envCommand} label="Export env and start" />
-          <div className="db-modal-or">or</div>
-          <p className="db-modal-copy">Option B: skip environment variables and run a single command.</p>
-          <CodeBlock code={oneShotCommand} label="att start --key" />
+          <div className="text-center text-xs text-muted-foreground">or</div>
+          <p className="text-sm text-muted-foreground">
+            Option B: skip environment variables and run a single command.
+          </p>
+          <CodeBlock code={flagCommand} label="att start --key" />
         </div>
-        <div className="db-modal-foot">
-          <button className="primary-button" type="button" onClick={onClose}>Done</button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -125,43 +121,41 @@ export function DashboardPage() {
   const userQuery = useQuery({
     queryKey: ["me"],
     queryFn: () => api<User>("/api/auth/me"),
-    enabled: Boolean(token)
+    enabled: Boolean(token),
   });
 
   const keysQuery = useQuery({
     queryKey: ["keys"],
     queryFn: () => api<KeysResponse>("/api/keys"),
-    enabled: Boolean(token)
+    enabled: Boolean(token),
   });
 
   const createKeyMutation = useMutation({
     mutationFn: () =>
       api<CreateKeyResponse>("/api/keys", {
         method: "POST",
-        body: JSON.stringify({ label: "workshop" })
+        body: JSON.stringify({ label: "workshop" }),
       }),
     onSuccess: async (data) => {
       setLatestKey(data.key);
       setShowSetupModal(true);
       await queryClient.invalidateQueries({ queryKey: ["keys"] });
-    }
+    },
   });
 
   const deleteKeyMutation = useMutation({
     mutationFn: (keyId: string) =>
       api<{ ok: boolean }>("/api/keys", {
         method: "POST",
-        body: JSON.stringify({ intent: "delete", keyId })
+        body: JSON.stringify({ intent: "delete", keyId }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["keys"] });
-    }
+    },
   });
 
   useEffect(() => {
-    if (userQuery.data) {
-      setUser(userQuery.data);
-    }
+    if (userQuery.data) setUser(userQuery.data);
   }, [setUser, userQuery.data]);
 
   const keys = keysQuery.data?.keys ?? [];
@@ -175,106 +169,147 @@ export function DashboardPage() {
   if (!token) return <Navigate to="/auth" replace />;
 
   return (
-    <div className="db-page">
-      {showSetupModal && latestKey && (
-        <SetupModal apiKey={latestKey} relayUrl={relayUrl} onClose={() => setShowSetupModal(false)} />
-      )}
-      <div className="db-frame">
-        <header className="db-topbar">
+    <div className="flex min-h-screen flex-col items-center bg-background">
+      <SetupModal
+        apiKey={latestKey}
+        relayUrl={relayUrl}
+        open={showSetupModal && Boolean(latestKey)}
+        onClose={() => setShowSetupModal(false)}
+      />
+
+      <div className="w-full max-w-[520px] px-6 pb-14 pt-8">
+        {/* Topbar */}
+        <header className="mb-5 flex items-center gap-3">
           <MenuButton />
-          <span className="db-brand">Dashboard</span>
+          <span className="text-sm font-semibold">Dashboard</span>
         </header>
 
-        <div className="db-card">
-          <div className="db-profile">
-            <div className="db-avatar">{avatarLetter}</div>
-            <div>
-              <p className="db-profile-name">{displayName || email || "User"}</p>
-              {displayName && <p className="db-profile-email">{email}</p>}
+        {/* Profile Card */}
+        <Card className="mb-3">
+          <div className="flex items-center gap-3.5 p-5">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback className="bg-foreground text-background text-sm font-bold">
+                {avatarLetter}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              {userQuery.isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              ) : (
+                <>
+                  <p className="truncate text-sm font-semibold">{displayName || email || "User"}</p>
+                  {displayName && (
+                    <p className="truncate text-xs text-muted-foreground">{email}</p>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
-          <div className="db-section-head">
-            <div className="db-label-group">
-              <span className="db-label">API Key</span>
-            </div>
-            {keys.length === 0 && (
-              <button
-                className="db-new-btn"
-                type="button"
+          <Separator />
+
+          {/* API Key Section Header */}
+          <div className="flex items-center justify-between px-5 py-3">
+            <span className="text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground">
+              API Key
+            </span>
+            {keys.length === 0 && !keysQuery.isLoading && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
                 disabled={createKeyMutation.isPending}
                 onClick={() => createKeyMutation.mutate()}
               >
-                {createKeyMutation.isPending ? "Creating…" : "Create Key"}
-              </button>
+                {createKeyMutation.isPending ? "Creating..." : "Create Key"}
+              </Button>
             )}
           </div>
 
-          <p className="db-section-copy">
-            Recommended: set <code>AGENTTOWN_API_KEY</code> and then run <code>att start</code>.
-            {!usesDefaultRelay && (
-              <>
-                {" "}If you are not using the default hosted relay, also set <code>AGENTTOWN_RELAY_URL</code> or pass <code>--relay</code>.
-              </>
-            )}
-          </p>
+          <Separator />
 
-          {keysQuery.isLoading && <p className="db-empty">Loading…</p>}
-          {keysQuery.isError && <p className="db-err">Failed to load keys.</p>}
+          <div className="px-5 py-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Recommended: set <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">AGENTTOWN_API_KEY</code> and then run{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">att start</code>.
+              {!usesDefaultRelay && (
+                <> If you are not using the default hosted relay, also set <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">AGENTTOWN_RELAY_URL</code>.</>
+              )}
+            </p>
+          </div>
 
-          {!keysQuery.isLoading && !keysQuery.isError && keys.length === 0 && (
-            <div className="db-key-empty">
-              <p className="db-empty">No API key. Create one to connect <code>att start</code> to this relay.</p>
-              <div className="db-key-empty-action">
-                <button
-                  className="primary-button"
-                  type="button"
-                  disabled={createKeyMutation.isPending}
-                  onClick={() => createKeyMutation.mutate()}
-                >
-                  {createKeyMutation.isPending ? "Creating…" : "Create API Key"}
-                </button>
-              </div>
+          <Separator />
+
+          {/* Loading */}
+          {keysQuery.isLoading && (
+            <div className="space-y-3 p-5">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-28" />
             </div>
           )}
 
+          {/* Error */}
+          {keysQuery.isError && (
+            <div className="p-5">
+              <p className="text-sm text-destructive">Failed to load keys.</p>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!keysQuery.isLoading && !keysQuery.isError && keys.length === 0 && (
+            <div className="p-5 text-center">
+              <p className="mb-3 text-sm text-muted-foreground">
+                No API key. Create one to connect <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">att start</code> to this relay.
+              </p>
+              <Button
+                disabled={createKeyMutation.isPending}
+                onClick={() => createKeyMutation.mutate()}
+              >
+                {createKeyMutation.isPending ? "Creating..." : "Create API Key"}
+              </Button>
+            </div>
+          )}
+
+          {/* Key list */}
           {!keysQuery.isLoading && !keysQuery.isError && keys.length > 0 && (
             <div>
               {keys.map((entry, index) => {
                 const createdDate = entry.createdAt?.split("T")[0] ?? "";
-
                 return (
-                  <div className="db-key-item" key={entry.id}>
-                    <div className="db-key-row">
-                      <div className="db-key-main">
-                        <div className="db-key-primary">
-                          <code className="db-key-prefix">{entry.keyPrefix}…</code>
-                          {index === 0 && <span className="db-key-badge">active</span>}
-                        </div>
-                        <div className="db-key-meta">
-                          {entry.label && <span className="db-key-label">{entry.label}</span>}
-                          {createdDate && <span className="db-key-date">{createdDate}</span>}
-                        </div>
+                  <div key={entry.id} className="flex items-center justify-between px-5 py-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <code className="text-sm font-mono font-medium">{entry.keyPrefix}...</code>
+                        {index === 0 && (
+                          <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200 text-[0.65rem]">
+                            active
+                          </Badge>
+                        )}
                       </div>
-
-                      <div className="db-key-actions">
-                        <button
-                          className="db-key-del"
-                          type="button"
-                          disabled={deleteKeyMutation.isPending}
-                          onClick={() => deleteKeyMutation.mutate(entry.id)}
-                          aria-label="Delete key"
-                        >
-                          ×
-                        </button>
+                      <div className="mt-0.5 flex gap-2 text-xs text-muted-foreground">
+                        {entry.label && <span>{entry.label}</span>}
+                        {createdDate && <span>{createdDate}</span>}
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      disabled={deleteKeyMutation.isPending}
+                      onClick={() => deleteKeyMutation.mutate(entry.id)}
+                      aria-label="Delete key"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 );
               })}
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

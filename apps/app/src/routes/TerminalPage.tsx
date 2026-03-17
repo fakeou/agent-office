@@ -1,15 +1,58 @@
 import "@xterm/xterm/css/xterm.css";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Terminal } from "@xterm/xterm";
-import { MenuButton } from "../components/NavSidebar";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
-import { getRelayWsQuery } from "../lib/relay-ws";
-import { useAuthStore } from "../store/auth";
-import { useSessionsStore } from "../store/sessions";
-import { RELAY_BASE } from "../lib/config";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowLeft, Copy, Check } from "lucide-react";
+import { MenuButton } from "@/components/layout/NavSheet";
+import { CopyButton } from "@/components/shared/CopyButton";
+import { TerminalLoading } from "@/components/shared/TerminalLoading";
+import { getRelayWsQuery } from "@/lib/relay-ws";
+import { useAuthStore } from "@/store/auth";
+import { useSessionsStore } from "@/store/sessions";
+import { RELAY_BASE } from "@/lib/config";
+
+function AttachCopyButton({ sessionId }: { sessionId: string }) {
+  const [copied, setCopied] = useState(false);
+  const text = `att attach ${sessionId}`;
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 text-[0.7rem] font-mono text-terminal-muted hover:text-terminal-text hover:bg-white/5"
+          onClick={() => void handleCopy()}
+        >
+          {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+          att attach
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Copy attach command</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function stateColor(state: string) {
+  switch (state) {
+    case "working": return "text-indigo-400";
+    case "approval": return "text-orange-400";
+    case "attention": return "text-red-400";
+    default: return "text-terminal-muted";
+  }
+}
 
 export function TerminalPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -29,18 +72,19 @@ export function TerminalPage() {
   const reconnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disposed = useRef(false);
   const rafRef = useRef<number | null>(null);
+  const [termReady, setTermReady] = useState(false);
 
-  // Terminal + WebSocket lifecycle
   useEffect(() => {
     if (!hostRef.current || !sessionId || !userId) return;
     disposed.current = false;
+    setTermReady(false);
 
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 13,
       fontFamily: '"IBM Plex Mono", monospace',
-      theme: { background: "#151311", foreground: "#f7f0df" },
-      allowProposedApi: true
+      theme: { background: "#0a0a0a", foreground: "#f7f0df" },
+      allowProposedApi: true,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -53,18 +97,11 @@ export function TerminalPage() {
     }
 
     function fitTerminal() {
-      try {
-        fit.fit();
-        sendResize();
-      } catch {
-        // ignore during initial layout and teardown
-      }
+      try { fit.fit(); sendResize(); } catch { /* ignore during layout */ }
     }
 
     function scheduleFit() {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = requestAnimationFrame(() => {
           rafRef.current = null;
@@ -73,12 +110,10 @@ export function TerminalPage() {
       });
     }
 
-    // Unicode11: fix CJK wide character alignment
     const unicode11 = new Unicode11Addon();
     term.loadAddon(unicode11);
     term.unicode.activeVersion = "11";
 
-    // Set up input handler before open — xterm buffers it
     const dataDisposable = term.onData((data) => {
       const ws = wsRef.current;
       if (ws?.readyState === WebSocket.OPEN) {
@@ -86,18 +121,13 @@ export function TerminalPage() {
       }
     });
 
-    // Connect WebSocket early — incoming data buffers until term.open() is called
+    let gotFirstData = false;
+
     async function connect() {
       if (disposed.current) return;
       const wsBase = RELAY_BASE.replace(/^http/, "ws");
       let authQuery = "";
-
-      try {
-        authQuery = await getRelayWsQuery(token);
-      } catch {
-        return;
-      }
-
+      try { authQuery = await getRelayWsQuery(token); } catch { return; }
       if (disposed.current) return;
 
       const url = authQuery
@@ -115,16 +145,26 @@ export function TerminalPage() {
       ws.addEventListener("message", (e) => {
         try {
           const msg = JSON.parse(e.data);
-          if (msg.type === "terminal:data") term.write(msg.data);
-          else if (msg.type === "terminal:unavailable") term.write(`\r\n[terminal unavailable: ${msg.reason}]\r\n`);
-          else if (msg.type === "terminal:exit") term.write(`\r\n\r\n[process exited: ${msg.exitCode}]\r\n`);
+          if (msg.type === "terminal:data") {
+            term.write(msg.data);
+            if (!gotFirstData) {
+              gotFirstData = true;
+              setTermReady(true);
+            }
+          } else if (msg.type === "terminal:unavailable") {
+            term.write(`\r\n[terminal unavailable: ${msg.reason}]\r\n`);
+            setTermReady(true);
+          } else if (msg.type === "terminal:exit") {
+            term.write(`\r\n\r\n[process exited: ${msg.exitCode}]\r\n`);
+            setTermReady(true);
+          }
         } catch { /* ignore */ }
       });
 
       ws.addEventListener("close", (ev) => {
         if (disposed.current) return;
         if (ev.code === 4401 || ev.reason === "unauthorized" || ev.reason === "token_expired") return;
-        term.write("\r\n[connection lost, reconnecting…]\r\n");
+        term.write("\r\n[connection lost, reconnecting...]\r\n");
         reconnTimer.current = setTimeout(() => {
           reconnDelay.current = Math.min(reconnDelay.current * 2, 30_000);
           void connect();
@@ -134,10 +174,6 @@ export function TerminalPage() {
 
     void connect();
 
-    // Open terminal only once the container has real pixel dimensions.
-    // If the container is still 0×0 (flex layout not yet painted), keep
-    // retrying via rAF — this prevents xterm from initialising with a
-    // zero-size canvas and appearing blank on first load.
     let ro: ResizeObserver | null = null;
     const handleWindowResize = () => scheduleFit();
 
@@ -146,14 +182,7 @@ export function TerminalPage() {
       const { width, height } = hostRef.current.getBoundingClientRect();
       if (width > 0 && height > 0) {
         term.open(hostRef.current);
-
-        // WebGL renderer: sharper text, better performance on high-DPI screens
-        try {
-          term.loadAddon(new WebglAddon());
-        } catch {
-          // WebGL not available, fall back to default canvas renderer
-        }
-
+        try { term.loadAddon(new WebglAddon()); } catch { /* fallback */ }
         ro = new ResizeObserver(() => scheduleFit());
         ro.observe(hostRef.current);
         window.addEventListener("resize", handleWindowResize);
@@ -180,51 +209,97 @@ export function TerminalPage() {
   }, [sessionId, userId, token]);
 
   return (
-    <div className={`terminal-shell ${hasBackgroundLocation ? "terminal-shell--overlay" : ""}`}>
-      <header className="terminal-topbar">
-        <div className="terminal-topbar-left">
+    <div
+      className={`grid h-screen grid-rows-[auto_1fr] bg-terminal-bg text-terminal-text ${
+        hasBackgroundLocation ? "fixed inset-0 z-50 safe-area-inset" : ""
+      }`}
+    >
+      {/* Header */}
+      <header className="flex items-center justify-between gap-3 border-b border-terminal-border bg-terminal-surface px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
           <MenuButton dark />
-          <button
-            className="ghost-link terminal-back-btn"
-            type="button"
-            onClick={() => (hasBackgroundLocation ? navigate(-1) : navigate("/workshop"))}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-terminal-muted hover:text-terminal-text hover:bg-white/5"
+            onClick={() =>
+              hasBackgroundLocation ? navigate(-1) : navigate("/workshop")
+            }
           >
-            ←
-          </button>
-          <div className="terminal-meta-info">
-            <p className="eyebrow" style={{ margin: 0 }}>Terminal</p>
-            <h2 className="terminal-title">{session?.title ?? sessionId}</h2>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-[0.6rem] font-medium uppercase tracking-wider text-white/20">
+              Terminal
+            </span>
+            <h2 className="truncate text-sm font-semibold">
+              {session?.title ?? sessionId}
+            </h2>
             {session && (
-              <p className="terminal-summary">{session.provider} · {session.displayState}</p>
+              <span className="hidden text-xs text-white/30 font-mono sm:inline">
+                {session.provider} · {session.displayState}
+              </span>
             )}
           </div>
         </div>
-        {session && (
-          <span className={`worker-state-pill worker-state-pill--${session.state}`} style={{ marginRight: 4 }}>
-            {session.displayState}
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {sessionId && <AttachCopyButton sessionId={sessionId} />}
+          {session && (
+            <Badge
+              variant="outline"
+              className={`border-terminal-border text-[0.65rem] font-mono ${stateColor(session.state)}`}
+            >
+              {session.displayState}
+            </Badge>
+          )}
+        </div>
       </header>
 
-      <div className="terminal-body">
-        <section className="terminal-main">
-          <div className="terminal-host" ref={hostRef} />
+      {/* Body */}
+      <div className="grid min-h-0 overflow-hidden lg:grid-cols-[1fr_200px]">
+        {/* Terminal */}
+        <section className="relative flex min-h-0 flex-col overflow-hidden">
+          {!termReady && <TerminalLoading />}
+          <div className="h-0 flex-1 overflow-hidden p-1" ref={hostRef} />
         </section>
 
-        <aside className="terminal-sidebar">
-          <div className="terminal-sidebar-section">
-            <p className="eyebrow">Session</p>
+        {/* Sidebar - PC only */}
+        <aside className="hidden border-l border-terminal-border bg-terminal-surface p-3.5 overflow-y-auto lg:block">
+          <div className="grid gap-3">
+            <p className="text-[0.6rem] font-medium uppercase tracking-wider text-white/20">
+              Session
+            </p>
             {session ? (
-              <dl className="terminal-meta-grid">
-                <dt>Provider</dt><dd>{session.provider}</dd>
-                <dt>Status</dt><dd>{session.status}</dd>
-                <dt>State</dt><dd>{session.displayState}</dd>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-2.5 gap-y-1.5 text-[0.72rem]">
+                <dt className="font-mono text-white/25">ID</dt>
+                <dd className="break-all font-mono text-terminal-muted">{sessionId}</dd>
+                <dt className="font-mono text-white/25">Provider</dt>
+                <dd className="font-mono text-terminal-muted">{session.provider}</dd>
+                <dt className="font-mono text-white/25">Status</dt>
+                <dd className="font-mono text-terminal-muted">{session.status}</dd>
+                <dt className="font-mono text-white/25">State</dt>
+                <dd className={`font-mono ${stateColor(session.state)}`}>{session.displayState}</dd>
               </dl>
             ) : (
-              <p className="muted-copy" style={{ margin: 0, fontSize: "0.85rem", color: "rgba(255,240,200,0.35)" }}>
+              <p className="break-all font-mono text-[0.8rem] text-white/30">
                 {sessionId}
               </p>
             )}
+
+            {/* Attach command block */}
+            <div className="mt-1 rounded-md border border-terminal-border bg-terminal-bg p-3">
+              <p className="mb-1.5 text-[0.6rem] uppercase tracking-wider text-white/20">
+                Attach command
+              </p>
+              <code className="block break-all font-mono text-[0.75rem] text-green-400">
+                att attach {sessionId}
+              </code>
+              <CopyButton
+                text={`att attach ${sessionId}`}
+                className="mt-2 w-full border-terminal-border text-terminal-muted hover:text-terminal-text hover:bg-white/5"
+                variant="outline"
+              />
+            </div>
           </div>
         </aside>
       </div>

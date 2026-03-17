@@ -410,14 +410,21 @@ function createPtyManager({ store }) {
     const hookTimestamp = new Date().toISOString();
     const targetSessionId = resolveClaudeSessionId(mapped.session);
     const isManagedTarget = targetSessionId !== mapped.session.sessionId;
+
+    // Only update sessions started via `att claude` (managed tmux sessions).
+    // Ignore hooks from external Claude processes not launched by AgentTown.
+    if (!isManagedTarget) {
+      return null;
+    }
+
     const previousSession = store.getSession(targetSessionId);
     const session = store.upsertSession({
       ...mapped.session,
       sessionId: targetSessionId,
-      mode: isManagedTarget ? "managed" : mapped.session.mode,
-      transport: isManagedTarget ? "tmux" : mapped.session.transport,
-      title: isManagedTarget ? undefined : mapped.session.title,
-      command: isManagedTarget ? undefined : mapped.session.command,
+      mode: "managed",
+      transport: "tmux",
+      title: undefined,
+      command: undefined,
       meta: {
         ...(mapped.session.meta || {}),
         hookSessionId: mapped.session.sessionId,
