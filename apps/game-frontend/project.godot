@@ -20,7 +20,6 @@ window/size/viewport_width=720
 window/size/viewport_height=800
 window/size/mode=3
 window/stretch/mode="viewport"
-window/stretch/aspect="keep"
 
 [physics]
 

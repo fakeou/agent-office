@@ -55,8 +55,8 @@ function CodeBlock({ code, label }: { code: string; label: string }) {
 }
 
 function buildEnvSetupCommand(apiKey: string, relayUrl: string) {
-  const lines = [`export AGENTTOWN_API_KEY=${apiKey}`];
-  if (relayUrl !== DEFAULT_RELAY_URL) lines.push(`export AGENTTOWN_RELAY_URL=${relayUrl}`);
+  const lines = [`export AGENTOFFICE_API_KEY=${apiKey}`];
+  if (relayUrl !== DEFAULT_RELAY_URL) lines.push(`export AGENTOFFICE_RELAY_URL=${relayUrl}`);
   lines.push("ato start");
   return lines.join("\n");
 }
@@ -233,10 +233,10 @@ export function DashboardPage() {
 
           <div className="px-5 py-3">
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Recommended: set <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">AGENTTOWN_API_KEY</code> and then run{" "}
+              Recommended: set <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">AGENTOFFICE_API_KEY</code> and then run{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">ato start</code>.
               {!usesDefaultRelay && (
-                <> If you are not using the default hosted relay, also set <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">AGENTTOWN_RELAY_URL</code>.</>
+                <> If you are not using the default hosted relay, also set <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">AGENTOFFICE_RELAY_URL</code>.</>
               )}
             </p>
           </div>

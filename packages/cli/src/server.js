@@ -2,7 +2,7 @@ const http = require("node:http");
 const path = require("node:path");
 const express = require("express");
 const { WebSocketServer } = require("ws");
-const { STATIC_DIR } = require("@agent-office/web");
+const { STATIC_DIR } = require("./web");
 const auth = require("./auth");
 
 function createAppServer({ host, port, store, ptyManager }) {

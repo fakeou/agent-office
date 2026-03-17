@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 
 const WORD1 = "Agent";
-const WORD2 = "Town";
+const WORD2 = "Office";
 const TYPING_SPEED = 70;
 const CURSOR_BLINK_SPEED = 530;
 const HOLD_DURATION = 400;

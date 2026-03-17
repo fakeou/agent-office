@@ -327,6 +327,11 @@ func _set_actor_path_to_world(actor: WorkerActor, target_world: Vector2) -> void
 
 	if actor.path_points.is_empty():
 		_on_actor_destination_reached(actor)
+		return
+
+	var first_dir: Vector2 = actor.path_points[0] - actor.node.global_position
+	actor.facing_direction = first_dir
+	_play_walk_for_direction(actor, actor.facing_direction)
 
 
 func _advance_worker(actor: WorkerActor, delta: float) -> void:
@@ -342,10 +347,12 @@ func _advance_worker(actor: WorkerActor, delta: float) -> void:
 		actor.path_points.remove_at(0)
 		if actor.path_points.is_empty():
 			_on_actor_destination_reached(actor)
+		else:
+			var next_dir: Vector2 = actor.path_points[0] - actor.node.global_position
+			actor.facing_direction = next_dir
+			_play_walk_for_direction(actor, actor.facing_direction)
 		return
 
-	actor.facing_direction = to_target
-	_play_walk_for_direction(actor, actor.facing_direction)
 	var step: float = minf(distance, move_speed * delta)
 	actor.node.global_position += to_target.normalized() * step
 

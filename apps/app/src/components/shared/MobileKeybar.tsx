@@ -3,6 +3,7 @@ const KEYS: readonly { label: string; data: string; accent?: boolean }[] = [
   { label: "Ctrl+D", data: "\x04" },
   { label: "Esc",    data: "\x1B" },
   { label: "Tab",    data: "\t" },
+  { label: "↵",      data: "\r" },
   { label: "↑",      data: "\x1B[A" },
   { label: "↓",      data: "\x1B[B" },
   { label: "←",      data: "\x1B[D" },

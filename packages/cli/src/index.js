@@ -14,7 +14,7 @@ const {
   DEFAULT_LAN_HOST,
   DEFAULT_PORT,
   DEFAULT_SERVER_URL
-} = require("@agent-office/core");
+} = require("./core");
 const {
   createPtyManager,
   defaultTransportForProvider,
@@ -29,7 +29,7 @@ const {
   listAgentOfficeSessions,
   killSession,
   tmuxPath
-} = require("@agent-office/runtime");
+} = require("./runtime");
 const { createTunnelClient } = require("./tunnel");
 
 const DEFAULT_RELAY_URL = "https://agentoffice.top";

@@ -332,7 +332,15 @@ export function TerminalPage() {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                readOnly
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); sendInputRef.current("\r"); }
+                  else if (e.key === "Backspace") { e.preventDefault(); sendInputRef.current("\x7f"); }
+                }}
+                onInput={(e) => {
+                  const target = e.currentTarget;
+                  const val = target.value;
+                  if (val) { sendInputRef.current(val); target.value = ""; }
+                }}
               />
               <MobileKeybar onKey={(data) => sendInputRef.current(data)} />
             </>

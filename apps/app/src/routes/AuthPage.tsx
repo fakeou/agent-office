@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,9 +27,9 @@ export function AuthPage() {
   const [codeSent, setCodeSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const registerEmailRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (hasValidJwt(token)) navigate("/office", { replace: true });
@@ -66,8 +67,8 @@ export function AuthPage() {
   const subtitle = useMemo(
     () =>
       mode === "register"
-        ? "Create account and get your office online."
-        : "Sign in to manage API keys and prepare the new office UI.",
+        ? "Create an account and launch your own AI studio."
+        : "Sign in to see what your Agents are up to.",
     [mode]
   );
 
@@ -148,14 +149,12 @@ export function AuthPage() {
       <div className="w-full max-w-[420px]">
         {/* Brand */}
         <div className="mb-6">
-          <div className="mb-4 grid h-11 w-11 place-items-center rounded-lg bg-foreground text-background text-xs font-bold tracking-wider">
-            AT
-          </div>
+          <img src="/favicon.png" alt="AgentOffice" className="mb-4 h-11 w-11 rounded-lg object-contain" />
           <p className="text-[0.7rem] font-medium uppercase tracking-widest text-muted-foreground">
-            AgentOffice App
+            AgentOffice
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">
-            React shell for auth now, Pixi office next.
+            Step into your studio.
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
         </div>
@@ -174,8 +173,8 @@ export function AuthPage() {
           onValueChange={(v) => setMode(v as "login" | "register")}
         >
           <TabsList className="mb-4 w-full">
-            <TabsTrigger value="login" className="flex-1">Login</TabsTrigger>
-            <TabsTrigger value="register" className="flex-1">Register</TabsTrigger>
+            <TabsTrigger value="login" className="flex-1">Sign In</TabsTrigger>
+            <TabsTrigger value="register" className="flex-1">Sign Up</TabsTrigger>
           </TabsList>
 
           <TabsContent value="login">
@@ -191,7 +190,7 @@ export function AuthPage() {
                     <Input id="login-password" name="password" type="password" placeholder="Your password" autoComplete="current-password" required />
                   </div>
                   <Button type="submit" disabled={loginPending} className="w-full">
-                    {loginPending ? "Signing in..." : "Log In"}
+                    {loginPending ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
               </CardContent>
@@ -206,7 +205,6 @@ export function AuthPage() {
                     <Label htmlFor="reg-email">Email</Label>
                     <div className="flex gap-2">
                       <Input
-                        ref={registerEmailRef}
                         id="reg-email"
                         name="email"
                         type="email"
@@ -214,6 +212,8 @@ export function AuthPage() {
                         autoComplete="email"
                         required
                         className="flex-1"
+                        value={registerEmail}
+                        onChange={(e) => setRegisterEmail(e.target.value)}
                       />
                       <Button
                         type="button"
@@ -221,7 +221,7 @@ export function AuthPage() {
                         size="sm"
                         className="shrink-0"
                         disabled={sendCodePending || countdown > 0}
-                        onClick={() => void handleSendCode(registerEmailRef.current?.value.trim() || "")}
+                        onClick={() => void handleSendCode(registerEmail.trim())}
                       >
                         {sendCodePending ? "Sending..." : countdown > 0 ? `${countdown}s` : "Send Code"}
                       </Button>

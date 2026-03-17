@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AgentTown</string>
-    <string name="title_activity_main">AgentTown</string>
-    <string name="package_name">cc.agenttown.app</string>
-    <string name="custom_url_scheme">cc.agenttown.app</string>
+    <string name="app_name">Agent Office</string>
+    <string name="title_activity_main">Agent Office</string>
+    <string name="package_name">top.agentoffice.app</string>
+    <string name="custom_url_scheme">top.agentoffice.app</string>
 </resources>

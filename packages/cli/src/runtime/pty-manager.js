@@ -1,7 +1,7 @@
 const crypto = require("node:crypto");
 const os = require("node:os");
 const pty = require("node-pty");
-const { getProvider } = require("@agent-office/core");
+const { getProvider } = require("../core");
 const {
   AGENTOFFICE_TMUX_PREFIX,
   attachClient,
@@ -349,11 +349,22 @@ function createPtyManager({ store }) {
           }
         }
 
-        const screen = await capturePane(runtime.tmuxSession);
-        const nextState = runtime.provider.classifyOutput(screen, store.getSession(session.sessionId));
-        if (nextState && nextState !== session.displayState) {
-          store.setSessionState(session.sessionId, nextState, { status: "running" });
+        const provider = getProvider(session.provider);
+        const reconcileResult = provider.reconcileSession(session, { sessions: currentSessions });
+        // Only run screen-based classifyOutput when the session has no transcript-driven state.
+        // For providers like Codex that use a transcript (codexSessionPath set), classifyOutput
+        // on the raw terminal text is unreliable and fights the transcript state machine, causing
+        // the session to flicker between "attention" and "idle" every polling tick.
+        const hasTranscriptState = Boolean(session.meta && session.meta.codexSessionPath);
+        if (!hasTranscriptState && (!reconcileResult || !reconcileResult.state)) {
+          const screen = await capturePane(runtime.tmuxSession);
+          const nextState = runtime.provider.classifyOutput(screen, store.getSession(session.sessionId));
+          if (nextState && nextState !== session.displayState) {
+            store.setSessionState(session.sessionId, nextState, { status: "running" });
+          }
         }
+        applyProviderReconcile(session, reconcileResult);
+        continue;
       }
 
       const provider = getProvider(session.provider);

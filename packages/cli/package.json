@@ -1,16 +1,28 @@
 {
-  "name": "agent-office",
-  "version": "0.2.0",
-  "private": true,
+  "name": "agent-office-cli",
+  "version": "0.0.1",
+  "description": "Run and manage AI agent sessions locally, with optional relay to agentoffice.top",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
     "ato": "src/index.js"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "claude",
+    "codex",
+    "tmux",
+    "cli"
+  ],
   "dependencies": {
-    "@agent-office/core": "workspace:*",
-    "@agent-office/runtime": "workspace:*",
-    "@agent-office/web": "workspace:*",
     "express": "^4.21.2",
+    "node-pty": "^1.0.0",
     "ws": "^8.18.0"
   }
 }

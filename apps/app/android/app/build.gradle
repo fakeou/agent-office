@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "cc.agenttown.app"
+    namespace = "top.agentoffice.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "cc.agenttown.app"
+        applicationId "top.agentoffice.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

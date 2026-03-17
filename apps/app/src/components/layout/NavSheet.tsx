@@ -71,9 +71,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
         <SheetContent side="left" className="w-64 p-0">
           <SheetHeader className="p-5 pb-4">
             <SheetTitle className="flex items-center gap-2.5">
-              <div className="grid h-8 w-8 place-items-center rounded-lg bg-foreground text-background text-xs font-bold tracking-wider">
-                AT
-              </div>
+              <img src="/favicon.png" alt="AgentOffice" className="h-8 w-8 rounded-lg object-contain" />
               <span className="text-sm font-semibold">AgentOffice</span>
             </SheetTitle>
           </SheetHeader>

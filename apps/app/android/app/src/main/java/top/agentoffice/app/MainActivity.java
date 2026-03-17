@@ -1,4 +1,4 @@
-package cc.agenttown.app;
+package top.agentoffice.app;
 
 import com.getcapacitor.BridgeActivity;
 

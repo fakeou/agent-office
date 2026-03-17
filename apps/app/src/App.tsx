@@ -66,7 +66,8 @@ function AppRoutes() {
 }
 
 export default function App() {
-  const [splashDone, setSplashDone] = useState(false);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const [splashDone, setSplashDone] = useState(!isAndroid);
   const handleSplashComplete = useCallback(() => setSplashDone(true), []);
 
   return (

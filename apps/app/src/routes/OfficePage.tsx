@@ -83,7 +83,7 @@ export function OfficePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-white">
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
@@ -123,12 +123,14 @@ export function OfficePage() {
       </header>
 
       {/* Godot Frame */}
-      <section className="flex-1">
-        <GodotOfficeFrame
-          connected={connected}
-          sessions={sessions}
-          onWorkerClick={onWorkerClick}
-        />
+      <section className="flex-1 flex justify-center">
+        <div className="w-full md:max-w-[480px]">
+          <GodotOfficeFrame
+            connected={connected}
+            sessions={sessions}
+            onWorkerClick={onWorkerClick}
+          />
+        </div>
       </section>
 
       {/* Launch Dialog */}
