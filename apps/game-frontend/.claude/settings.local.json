@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(which node && node --version && which npm && npm --version)",
+      "Bash(which docker && docker --version)",
+      "Bash(n8n --version 2>/dev/null || echo \"n8n not installed\")",
+      "Bash(npm info n8n engines 2>/dev/null)",
+      "Bash(npm install -g n8n 2>&1)",
+      "Bash(npm cache clean --force 2>&1)",
+      "Bash(npm cache clean --force 2>&1 && npm install -g n8n 2>&1)",
+      "Bash(npm config get prefix)",
+      "Bash(n8n --version)",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_screenshot"
+    ]
+  }
+}

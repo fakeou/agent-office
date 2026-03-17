@@ -1,0 +1,19 @@
+[gd_scene format=3 uid="uid://d3mx4gc6wmyed"]
+
+[ext_resource type="Texture2D" uid="uid://causfcisspi5b" path="res://assets/Basement_01.png" id="1_bl1gf"]
+[ext_resource type="Texture2D" uid="uid://bed2vttr6vvex" path="res://assets/Modern_Office_Revamped_v1.2/Modern_Office_48x48.png" id="2_b44s7"]
+
+[node name="Node2D" type="Node2D" unique_id=1009619648]
+position = Vector2(-8, -60)
+
+[node name="Basement02" type="Sprite2D" parent="." unique_id=729995282]
+position = Vector2(8, 104)
+texture = ExtResource("1_bl1gf")
+region_enabled = true
+region_rect = Rect2(0, 576, 143, 81)
+
+[node name="ModernOffice48x48" type="Sprite2D" parent="." unique_id=968100777]
+position = Vector2(8, 16)
+texture = ExtResource("2_b44s7")
+region_enabled = true
+region_rect = Rect2(486, 1371, 123, 69)

@@ -1,0 +1,247 @@
+[gd_scene format=3 uid="uid://3eqgnx5va28k"]
+
+[ext_resource type="Texture2D" uid="uid://bed2vttr6vvex" path="res://assets/Modern_Office_Revamped_v1.2/Modern_Office_48x48.png" id="1_k2yin"]
+[ext_resource type="SpriteFrames" uid="uid://dr5ym80eh8vb3" path="res://role/animation/bob.tres" id="2_j0ad2"]
+[ext_resource type="Texture2D" uid="uid://b3iun40k12vm" path="res://assets/Modern_Office_Revamped_v1.2/5_Modern_Office_RPG_MAKER_MV/Modern_Office_MV_1_TILESETS_B-C-D-E.png" id="3_uu1y8"]
+[ext_resource type="Texture2D" uid="uid://ciuoktnbdw3a7" path="res://assets/Modern_Office_Revamped_v1.2/5_Modern_Office_RPG_MAKER_MV/Modern_Office_MV_2_TILESETS_B-C-D-E.png" id="4_o1521"]
+[ext_resource type="Script" uid="uid://pus6t7o1u2nt" path="res://srcipt/work_spot.gd" id="5_5o1ep"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_seat"]
+font_size = 18
+outline_size = 2
+outline_color = Color(0, 0, 0, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_oxjkd"]
+font_size = 18
+font_color = Color(1.0734373, 1.0734373, 1.0734373, 1)
+outline_size = 2
+outline_color = Color(0, 0, 0, 1)
+
+[node name="work_spot_normal" type="Node2D" unique_id=30472011]
+script = ExtResource("5_5o1ep")
+
+[node name="markers" type="Node2D" parent="." unique_id=1785014851]
+
+[node name="marker_fron" type="Marker2D" parent="markers" unique_id=2070653153]
+position = Vector2(-40, 72)
+
+[node name="marker_beh" type="Marker2D" parent="markers" unique_id=1111059053]
+position = Vector2(-40, -64)
+
+[node name="beh" type="Node2D" parent="." unique_id=1463405404]
+
+[node name="chair_beh" type="Sprite2D" parent="beh" unique_id=2117570779]
+position = Vector2(0, -81)
+texture = ExtResource("1_k2yin")
+region_enabled = true
+region_rect = Rect2(96, 404, 48, 70)
+
+[node name="worker_seat_beh" type="AnimatedSprite2D" parent="beh" unique_id=124847558]
+position = Vector2(0, -88)
+scale = Vector2(3, 3)
+sprite_frames = ExtResource("2_j0ad2")
+animation = &"walk_south"
+
+[node name="name_anchor_beh" type="Marker2D" parent="beh" unique_id=1108358692]
+position = Vector2(0, -123)
+
+[node name="name_label_beh" type="Label" parent="beh/name_anchor_beh" unique_id=1266034187]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -28.0
+offset_top = -13.0
+offset_right = 29.0
+offset_bottom = 10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.988235, 0.901961, 0.627451, 1)
+theme_override_colors/font_outline_color = Color(0.0862745, 0.0666667, 0.101961, 1)
+theme_override_constants/outline_size = 3
+text = "text"
+label_settings = SubResource("LabelSettings_seat")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="desk_beh" type="Node2D" parent="beh" unique_id=806258896]
+
+[node name="desk_pink" type="Sprite2D" parent="beh/desk_beh" unique_id=2111061846]
+position = Vector2(0, -24)
+texture = ExtResource("1_k2yin")
+region_enabled = true
+region_rect = Rect2(54, 1467, 123, 69)
+
+[node name="desk_wood" type="Sprite2D" parent="beh/desk_beh" unique_id=982311155]
+visible = false
+position = Vector2(1, -24)
+texture = ExtResource("1_k2yin")
+region_enabled = true
+region_rect = Rect2(342, 1371, 127, 70)
+
+[node name="tabletop_beh" type="Node2D" parent="beh" unique_id=480045658]
+
+[node name="tabletop_beh_1" type="Node2D" parent="beh/tabletop_beh" unique_id=1058186917]
+visible = false
+
+[node name="monitor" type="Sprite2D" parent="beh/tabletop_beh/tabletop_beh_1" unique_id=2098158740]
+position = Vector2(0, -44)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(672, 516, 48, 39)
+
+[node name="book" type="Sprite2D" parent="beh/tabletop_beh/tabletop_beh_1" unique_id=882112224]
+position = Vector2(-40, -53)
+scale = Vector2(0.7708333, 0.81372553)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(528, 615, 48, 51)
+
+[node name="tabletop_beh_2" type="Node2D" parent="beh/tabletop_beh" unique_id=422788044]
+
+[node name="ModernOfficeMv2TilesetsBCDE" type="Sprite2D" parent="beh/tabletop_beh/tabletop_beh_2" unique_id=1656674153]
+position = Vector2(-2, -48)
+texture = ExtResource("4_o1521")
+region_enabled = true
+region_rect = Rect2(531, 351, 135, 33)
+
+[node name="tabletop_beh_3" type="Node2D" parent="beh/tabletop_beh" unique_id=1962173296]
+visible = false
+
+[node name="ModernOfficeMv2TilesetsBCDE" type="Sprite2D" parent="beh/tabletop_beh/tabletop_beh_3" unique_id=762516309]
+position = Vector2(16, -48)
+texture = ExtResource("4_o1521")
+region_enabled = true
+region_rect = Rect2(678, 396, 69, 36)
+
+[node name="office" type="Sprite2D" parent="." unique_id=237297669]
+texture = ExtResource("1_k2yin")
+region_enabled = true
+region_rect = Rect2(39, 1263, 153, 129)
+
+[node name="front" type="Node2D" parent="." unique_id=1773895065]
+
+[node name="desk_front" type="Node2D" parent="front" unique_id=2113713138]
+
+[node name="desk_pink" type="Sprite2D" parent="front/desk_front" unique_id=2078341553]
+position = Vector2(0, 24)
+texture = ExtResource("1_k2yin")
+region_enabled = true
+region_rect = Rect2(54, 1467, 123, 69)
+
+[node name="desk_wood" type="Sprite2D" parent="front/desk_front" unique_id=1609536659]
+visible = false
+position = Vector2(2, 24)
+texture = ExtResource("1_k2yin")
+region_enabled = true
+region_rect = Rect2(342, 1371, 127, 70)
+
+[node name="tabletop_front" type="Node2D" parent="front" unique_id=1882357737]
+visible = false
+
+[node name="tabletop_front_1" type="Node2D" parent="front/tabletop_front" unique_id=1443060028]
+visible = false
+
+[node name="phone" type="Sprite2D" parent="front/tabletop_front/tabletop_front_1" unique_id=244275195]
+position = Vector2(40, 8)
+scale = Vector2(0.76666665, 0.76666665)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(396, 354, 30, 30)
+
+[node name="comp" type="Sprite2D" parent="front/tabletop_front/tabletop_front_1" unique_id=692860723]
+position = Vector2(-22, 0)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(624, 579, 96, 45)
+
+[node name="book" type="Sprite2D" parent="front/tabletop_front/tabletop_front_1" unique_id=192047619]
+position = Vector2(-40.000008, 32)
+scale = Vector2(0.7162162, 0.6111111)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(635, 540, 37, 36)
+
+[node name="tabletop_front_3" type="Node2D" parent="front/tabletop_front" unique_id=33967908]
+visible = false
+
+[node name="monitor" type="Sprite2D" parent="front/tabletop_front/tabletop_front_3" unique_id=364132768]
+position = Vector2(0, -3)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(672, 630, 48, 42)
+
+[node name="laptop" type="Sprite2D" parent="front/tabletop_front/tabletop_front_3" unique_id=1281188982]
+position = Vector2(-40, 8)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(438, 393, 39, 63)
+
+[node name="ModernOfficeMv1TilesetsBCDE" type="Sprite2D" parent="front/tabletop_front/tabletop_front_3" unique_id=1043511757]
+position = Vector2(40, 16)
+scale = Vector2(0.5833334, 0.60555553)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(576, 531, 48, 45)
+
+[node name="tabletop_front_2" type="Node2D" parent="front/tabletop_front" unique_id=1025677533]
+visible = false
+
+[node name="ModernOfficeMv1TilesetsBCDE4" type="Sprite2D" parent="front/tabletop_front/tabletop_front_2" unique_id=287187602]
+position = Vector2(40, 24)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(339, 366, 42, 48)
+
+[node name="ModernOfficeMv1TilesetsBCDE3" type="Sprite2D" parent="front/tabletop_front/tabletop_front_2" unique_id=1300991354]
+position = Vector2(40, -11)
+scale = Vector2(0.8111111, 0.8137255)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(387, 675, 45, 51)
+
+[node name="ModernOfficeMv1TilesetsBCDE" type="Sprite2D" parent="front/tabletop_front/tabletop_front_2" unique_id=2049368629]
+position = Vector2(0, 8)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(486, 408, 39, 48)
+
+[node name="ModernOfficeMv1TilesetsBCDE2" type="Sprite2D" parent="front/tabletop_front/tabletop_front_2" unique_id=1646705949]
+position = Vector2(-40, 11)
+scale = Vector2(0.76666665, 0.8)
+texture = ExtResource("3_uu1y8")
+region_enabled = true
+region_rect = Rect2(396, 354, 30, 30)
+
+[node name="worker_seat_front" type="AnimatedSprite2D" parent="front" unique_id=50329123]
+position = Vector2(0, 32)
+scale = Vector2(3, 3)
+sprite_frames = ExtResource("2_j0ad2")
+animation = &"idle_north"
+
+[node name="name_anchor_front" type="Marker2D" parent="front" unique_id=2077466278]
+position = Vector2(0, 8)
+
+[node name="name_label_front" type="Label" parent="front/name_anchor_front" unique_id=492786089]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -24.0
+offset_top = -15.0
+offset_right = 24.0
+offset_bottom = 8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.988235, 0.901961, 0.627451, 1)
+theme_override_colors/font_outline_color = Color(0.0862745, 0.0666667, 0.101961, 1)
+theme_override_constants/outline_size = 3
+text = "text"
+label_settings = SubResource("LabelSettings_oxjkd")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="chair_front" type="Sprite2D" parent="front" unique_id=1709012540]
+position = Vector2(0, 64)
+texture = ExtResource("1_k2yin")
+region_enabled = true
+region_rect = Rect2(48, 410, 48, 64)

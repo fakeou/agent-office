@@ -1,0 +1,51 @@
+[gd_scene format=3 uid="uid://cqmdkehcwxmyt"]
+
+[ext_resource type="SpriteFrames" uid="uid://dr5ym80eh8vb3" path="res://role/animation/bob.tres" id="1_k4vpb"]
+[ext_resource type="Texture2D" uid="uid://bgagbbwhjojyv" path="res://assets/role_state.png" id="2_wlwd2"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_name"]
+font_size = 18
+outline_size = 2
+outline_color = Color(0, 0, 0, 1)
+
+[node name="Node2D" type="Node2D" unique_id=384281064]
+
+[node name="name_anchor" type="Marker2D" parent="." unique_id=1789083901]
+position = Vector2(0, -22)
+
+[node name="name_label" type="Label" parent="name_anchor" unique_id=1237562792]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -17.5
+offset_top = -67.0
+offset_right = 17.5
+offset_bottom = -41.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.988235, 0.901961, 0.627451, 1)
+theme_override_colors/font_outline_color = Color(0.0862745, 0.0666667, 0.101961, 1)
+theme_override_constants/outline_size = 3
+text = "text"
+label_settings = SubResource("LabelSettings_name")
+horizontal_alignment = 1
+vertical_alignment = 1
+metadata/_edit_use_anchors_ = true
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=771614915]
+scale = Vector2(3, 3)
+sprite_frames = ExtResource("1_k4vpb")
+animation = &"idle_south"
+frame_progress = 0.26808086
+offset = Vector2(0, -16)
+
+[node name="state_anchor" type="Marker2D" parent="." unique_id=1088541678]
+visible = false
+position = Vector2(0, -22)
+
+[node name="RoleState" type="Sprite2D" parent="state_anchor" unique_id=481315394]
+position = Vector2(0, -74)
+scale = Vector2(2, 2)
+texture = ExtResource("2_wlwd2")
+region_enabled = true
+region_rect = Rect2(113, 97, 14, 14)

@@ -1,0 +1,13 @@
+RPG MAKER MV/MZ MANUAL
+--
+1)IMPORTING WALLS AND FLOORS
+- Create a new project on the RPG_MAKER
+- On the upper part of the screen, select Tools->Resource manager
+- Click on img/tilesets and then on the Import button
+- Select the walls and floors files from the MV folder (Modern_Interiors->4_RPG_MAKER_MV)
+- On the upper part of the screen, select Tools->Database, then Tilesets
+- Add any of the previously added tilesets to the Tilesets pages A2 for the floors, A4 for the walls.
+
+
+
+IF YOU NEED FURTHER HELP, COMMENT HERE ---> https://limezu.itch.io/moderninteriors
