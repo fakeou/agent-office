@@ -154,7 +154,7 @@ func _apply_session_snapshot(payload: Variant) -> void:
 		var actor: WorkerActor = _ensure_worker_actor(session_id)
 		actor.title = _extract_session_title(session)
 		_sync_worker_title(actor)
-		var next_state: String = _normalize_state(str(session.get("state", session.get("status", STATE_IDLE))))
+		var next_state: String = _extract_display_state(session)
 		_set_worker_state(actor, next_state, is_new)
 
 	for session_id_variant in _workers_by_session.keys().duplicate():
@@ -178,7 +178,7 @@ func _apply_single_worker_state(payload: Variant) -> void:
 		_sync_worker_title(actor_new)
 		_set_worker_state(
 			actor_new,
-			_normalize_state(str(payload_dict.get("state", payload_dict.get("status", STATE_IDLE)))),
+			_extract_display_state(payload_dict),
 			true
 		)
 		return
@@ -189,7 +189,7 @@ func _apply_single_worker_state(payload: Variant) -> void:
 		_sync_worker_title(actor)
 	_set_worker_state(
 		actor,
-		_normalize_state(str(payload_dict.get("state", payload_dict.get("status", STATE_IDLE)))),
+		_extract_display_state(payload_dict),
 		false
 	)
 
@@ -622,6 +622,12 @@ func _extract_session_title(session: Dictionary) -> String:
 	return title
 
 
+func _extract_display_state(session: Dictionary) -> String:
+	return _normalize_state(
+		str(session.get("displayState", session.get("state", session.get("status", STATE_IDLE))))
+	)
+
+
 func _sync_worker_title(actor: WorkerActor) -> void:
 	var display_title: String = actor.title.strip_edges()
 	if display_title.is_empty():
@@ -646,12 +652,26 @@ func _get_worker_state_anchor(node: Node2D) -> Marker2D:
 	return node.get_node_or_null("state_anchor") as Marker2D
 
 
+func _get_worker_state_sprite(node: Node2D) -> Sprite2D:
+	return node.get_node_or_null("state_anchor/RoleState") as Sprite2D
+
+
 func _sync_worker_state_indicator(actor: WorkerActor) -> void:
 	var state_anchor: Marker2D = _get_worker_state_anchor(actor.node)
 	if state_anchor == null:
 		return
 
-	state_anchor.visible = actor.state == STATE_APPROVAL
+	var indicator: Sprite2D = _get_worker_state_sprite(actor.node)
+	var show_indicator := actor.state == STATE_APPROVAL or actor.state == STATE_ATTENTION
+	state_anchor.visible = show_indicator
+	if indicator == null or not show_indicator:
+		return
+
+	if actor.state == STATE_ATTENTION:
+		indicator.modulate = Color(1.0, 0.55, 0.45, 1.0)
+		return
+
+	indicator.modulate = Color(1.0, 1.0, 1.0, 1.0)
 
 
 func _get_actor_click_position(actor: WorkerActor) -> Vector2:
