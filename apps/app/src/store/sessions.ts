@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { api } from "../lib/api";
 import { RELAY_BASE } from "../lib/config";
+import {
+  getEventsReconnectStateOnClose,
+  getEventsReconnectStateOnOpen,
+  INITIAL_EVENTS_RECONNECT_STATE,
+} from "../lib/events-recovery";
 import { shouldReplaceSocketOnResume } from "../lib/live-recovery";
 import { getRelayWsQuery } from "../lib/relay-ws";
 import { useAuthStore } from "./auth";
@@ -45,8 +50,7 @@ interface SessionsState {
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let connectPromise: Promise<void> | null = null;
-let reconnectDelay = 1000;
-const MAX_DELAY = 30_000;
+let reconnectState = INITIAL_EVENTS_RECONNECT_STATE;
 const EVENTS_STALE_AFTER_MS = 1_500;
 let lastMessageAt: number | null = null;
 let firstMessageTimer: ReturnType<typeof setTimeout> | null = null;
@@ -103,7 +107,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
 
         socket.onopen = () => {
           set({ connected: true, error: null });
-          reconnectDelay = 1000;
+          reconnectState = getEventsReconnectStateOnOpen(reconnectState);
           if (firstMessageTimer) {
             clearTimeout(firstMessageTimer);
           }
@@ -149,11 +153,11 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
             return;
           }
 
+          reconnectState = getEventsReconnectStateOnClose(reconnectState, ev);
           reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
             get().startWs();
-          }, reconnectDelay);
-          reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY);
+          }, reconnectState.delayMs);
         };
 
         socket.onerror = () => {
@@ -191,7 +195,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
-    reconnectDelay = 1000;
+    reconnectState = INITIAL_EVENTS_RECONNECT_STATE;
 
     if (
       ws &&
