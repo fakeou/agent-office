@@ -24,6 +24,7 @@ test("remote deploy script exists and covers the production deployment flow", ()
 
   assert.match(script, /root@agentoffice\.top/);
   assert.match(script, /\/opt\/agentoffice/);
+  assert.match(script, /<<'EOF'/);
   assert.match(script, /git fetch --tags origin main/);
   assert.match(script, /pnpm install --frozen-lockfile/);
   assert.match(script, /python3\.11/);

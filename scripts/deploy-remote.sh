@@ -13,8 +13,10 @@ SSH_OPTS=(
 
 echo "Deploying main to ${DEPLOY_HOST}:${DEPLOY_DIR}"
 
-ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "bash -s" <<EOF
+ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "bash -s -- '$DEPLOY_DIR'" <<'EOF'
 set -euo pipefail
+
+DEPLOY_DIR="$1"
 
 cd "$DEPLOY_DIR"
 
