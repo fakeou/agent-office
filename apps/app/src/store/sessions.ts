@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api } from "../lib/api";
 import { RELAY_BASE } from "../lib/config";
+import { shouldReplaceSocketOnResume } from "../lib/live-recovery";
 import { getRelayWsQuery } from "../lib/relay-ws";
 import { useAuthStore } from "./auth";
 
@@ -46,6 +47,9 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let connectPromise: Promise<void> | null = null;
 let reconnectDelay = 1000;
 const MAX_DELAY = 30_000;
+const EVENTS_STALE_AFTER_MS = 1_500;
+let lastMessageAt: number | null = null;
+let firstMessageTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useSessionsStore = create<SessionsState>((set, get) => ({
   sessions: [],
@@ -100,9 +104,22 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
         socket.onopen = () => {
           set({ connected: true, error: null });
           reconnectDelay = 1000;
+          if (firstMessageTimer) {
+            clearTimeout(firstMessageTimer);
+          }
+          firstMessageTimer = setTimeout(() => {
+            if (ws === socket && lastMessageAt == null) {
+              socket.close();
+            }
+          }, EVENTS_STALE_AFTER_MS);
         };
 
         socket.onmessage = (ev) => {
+          lastMessageAt = Date.now();
+          if (firstMessageTimer) {
+            clearTimeout(firstMessageTimer);
+            firstMessageTimer = null;
+          }
           try {
             const msg = JSON.parse(ev.data);
             if (msg.type === "sessions:snapshot" && Array.isArray(msg.sessions)) {
@@ -122,6 +139,10 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
         socket.onclose = (ev) => {
           ws = null;
           set({ connected: false });
+          if (firstMessageTimer) {
+            clearTimeout(firstMessageTimer);
+            firstMessageTimer = null;
+          }
 
           if (ev.code === 4401 || ev.reason === "unauthorized" || ev.reason === "token_expired") {
             useAuthStore.getState().clearAuth();
@@ -155,6 +176,11 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       ws.close();
       ws = null;
     }
+    lastMessageAt = null;
+    if (firstMessageTimer) {
+      clearTimeout(firstMessageTimer);
+      firstMessageTimer = null;
+    }
     connectPromise = null;
     set({ connected: false });
   },
@@ -167,14 +193,22 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     }
     reconnectDelay = 1000;
 
-    // If already connected and open, nothing to do
-    if (ws?.readyState === WebSocket.OPEN) return;
+    if (
+      ws &&
+      !shouldReplaceSocketOnResume({
+        readyState: ws.readyState,
+        lastMessageAt,
+        staleAfterMs: EVENTS_STALE_AFTER_MS,
+      })
+    ) {
+      return;
+    }
 
-    // Close stale socket if lingering
     if (ws) {
       ws.close();
       ws = null;
     }
+    lastMessageAt = null;
     connectPromise = null;
 
     get().startWs();

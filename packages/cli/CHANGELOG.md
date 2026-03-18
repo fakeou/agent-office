@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.1] - 2026-03-18
+
+### Added
+- Mobile live-recovery helpers for stale-on-resume socket replacement and platform-specific recovery guidance
+- Regression tests covering runtime postinstall path, removal of the legacy `packages/core` package, and display-state contract behavior
+
+### Changed
+- The live daemon now treats `packages/cli/src/core` and `packages/cli/src/runtime` as the only authoritative implementation paths
+- Mobile office and terminal clients force fresh reconnects after foreground restore when a socket has gone stale
+
+### Fixed
+- `displayZone` now follows `displayState` reliably, so approval and attention overlays land in the correct UI zone
+- Root `postinstall` now points at the real `packages/cli/src/runtime/ensure-node-pty` module
+- Removed stale workspace dependencies on `@agent-office/core` from relay and API services
+- Deleted the obsolete `packages/core` mirror to prevent future drift
 ## [0.1.0] - 2026-03-17
 
 ### Added

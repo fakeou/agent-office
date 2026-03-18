@@ -13,10 +13,14 @@ function cloneSession(session) {
   return toPublicSession(session);
 }
 
+function applyDisplay(session, nextDisplayState, nextDisplayZone = null) {
+  session.displayState = nextDisplayState;
+  session.displayZone = nextDisplayZone || displayZoneFor(nextDisplayState);
+}
+
 function applyState(session, nextState) {
   session.state = nextState;
-  session.displayState = nextState;
-  session.displayZone = displayZoneFor(nextState);
+  applyDisplay(session, nextState);
 }
 
 function createSessionStore() {
@@ -26,6 +30,7 @@ function createSessionStore() {
   function buildSession(payload) {
     const sessionId = payload.sessionId || `sess_${crypto.randomBytes(5).toString("hex")}`;
     const state = payload.state || "idle";
+    const displayState = payload.displayState || state;
     const createdAt = payload.createdAt || isoNow();
     const updatedAt = payload.updatedAt || createdAt;
 
@@ -38,8 +43,8 @@ function createSessionStore() {
       mode: payload.mode || "managed",
       transport: payload.transport || "pty",
       state,
-      displayState: payload.displayState || state,
-      displayZone: payload.displayZone || displayZoneFor(state),
+      displayState,
+      displayZone: payload.displayZone || displayZoneFor(displayState),
       status: payload.status || "registered",
       createdAt,
       updatedAt,
@@ -86,10 +91,10 @@ function createSessionStore() {
     if (payload.state) {
       applyState(existing, payload.state);
     }
-    if (payload.displayState && !payload.state) {
-      existing.displayState = payload.displayState;
+    if (payload.displayState) {
+      applyDisplay(existing, payload.displayState, payload.displayZone);
     }
-    if (payload.displayZone && !payload.state) {
+    if (payload.displayZone && !payload.displayState) {
       existing.displayZone = payload.displayZone;
     }
     if (payload.status) {
@@ -110,9 +115,9 @@ function createSessionStore() {
     session.updatedAt = isoNow();
     Object.assign(session, patch);
     if (patch.displayState) {
-      session.displayState = patch.displayState;
+      applyDisplay(session, patch.displayState, patch.displayZone);
     }
-    if (patch.displayZone) {
+    if (patch.displayZone && !patch.displayState) {
       session.displayZone = patch.displayZone;
     }
     emitUpdate(sessionId);
@@ -164,13 +169,11 @@ function createSessionStore() {
     Object.assign(session, patch);
     if (patch.state) {
       applyState(session, patch.state);
-    } else {
-      if (patch.displayState) {
-        session.displayState = patch.displayState;
-      }
-      if (patch.displayZone) {
-        session.displayZone = patch.displayZone;
-      }
+    }
+    if (patch.displayState) {
+      applyDisplay(session, patch.displayState, patch.displayZone);
+    } else if (patch.displayZone) {
+      session.displayZone = patch.displayZone;
     }
     emitUpdate(sessionId);
     return session;

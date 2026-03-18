@@ -4,7 +4,7 @@
 
 **Goal:** Make Codex `approval` and `attention` survive transcript linking and reach the Game UI through `displayState`/`displayZone`.
 
-**Architecture:** Keep lifecycle state and presentation state separate. Transcript reconciliation remains responsible for stable lifecycle transitions, while runtime output adds presentation overlays for `approval` and `attention`. The CLI runtime and Game UI both switch to treating `displayState` as the user-visible authority. Because this repo has mirrored core logic in `packages/core/src` and `packages/cli/src/core`, the implementation updates both copies in the same commit.
+**Architecture:** Keep lifecycle state and presentation state separate. Transcript reconciliation remains responsible for stable lifecycle transitions, while runtime output adds presentation overlays for `approval` and `attention`. The CLI runtime and Game UI both switch to treating `displayState` as the user-visible authority. The live implementation now sits under `packages/cli/src/core` and `packages/cli/src/runtime`.
 
 **Tech Stack:** Node.js 18+, CommonJS modules, `node:test`, tmux-backed CLI runtime, React app event bridge, Godot GDScript office scene
 
@@ -13,22 +13,16 @@
 ## File Map
 
 - Modify: `packages/cli/src/core/providers/codex.js`
-- Modify: `packages/core/src/providers/codex.js`
 - Modify: `packages/cli/src/runtime/pty-manager.js`
 - Modify: `apps/game-frontend/srcipt/main.gd`
 - Modify: `packages/cli/src/core/store/session-store.js`
-- Modify: `packages/core/src/store/session-store.js`
 - Modify: `packages/cli/src/core/session-contract.js`
-- Modify: `packages/core/src/session-contract.js`
 - Create: `packages/cli/src/core/providers/codex.test.js`
 - Create: `packages/cli/src/core/store/session-store.test.js`
-- Optional Create: `packages/core/src/providers/codex.test.js`
-- Optional Create: `packages/core/src/store/session-store.test.js`
 
 Notes:
 
 - The runtime executes `packages/cli/src/core/*`, so tests must at least cover that tree.
-- `packages/core/src/*` is still a public mirror and should stay behaviorally aligned.
 - There is no existing Jest/Vitest setup; use `node --test` with focused CommonJS tests.
 
 ### Task 1: Lock In Overlay Semantics With Failing Tests
@@ -36,8 +30,6 @@ Notes:
 **Files:**
 - Create: `packages/cli/src/core/providers/codex.test.js`
 - Create: `packages/cli/src/core/store/session-store.test.js`
-- Optional Create: `packages/core/src/providers/codex.test.js`
-- Optional Create: `packages/core/src/store/session-store.test.js`
 
 - [ ] **Step 1: Write the failing provider test for transcript lifecycle plus overlay preservation**
 
@@ -102,7 +94,6 @@ git commit -m "test: capture Codex overlay state regressions"
 
 **Files:**
 - Modify: `packages/cli/src/core/providers/codex.js`
-- Modify: `packages/core/src/providers/codex.js`
 
 - [ ] **Step 1: Add a small helper that derives overlay patch metadata from the current session**
 
@@ -162,20 +153,15 @@ if (summary.state === "idle" && session.displayState === "attention") {
 }
 ```
 
-- [ ] **Step 5: Mirror the same logic into `packages/core/src/providers/codex.js`**
-
-Run: `diff -u packages/cli/src/core/providers/codex.js packages/core/src/providers/codex.js`  
-Expected: no unintended drift beyond known path differences.
-
-- [ ] **Step 6: Run the focused provider test**
+- [ ] **Step 5: Run the focused provider test**
 
 Run: `node --test packages/cli/src/core/providers/codex.test.js`  
 Expected: PASS
 
-- [ ] **Step 7: Commit the provider merge behavior**
+- [ ] **Step 6: Commit the provider merge behavior**
 
 ```bash
-git add packages/cli/src/core/providers/codex.js packages/core/src/providers/codex.js packages/cli/src/core/providers/codex.test.js
+git add packages/cli/src/core/providers/codex.js packages/cli/src/core/providers/codex.test.js
 git commit -m "fix: preserve Codex approval and attention overlays"
 ```
 
@@ -184,9 +170,7 @@ git commit -m "fix: preserve Codex approval and attention overlays"
 **Files:**
 - Modify: `packages/cli/src/runtime/pty-manager.js`
 - Modify: `packages/cli/src/core/store/session-store.js`
-- Modify: `packages/core/src/store/session-store.js`
 - Modify: `packages/cli/src/core/session-contract.js`
-- Modify: `packages/core/src/session-contract.js`
 
 - [ ] **Step 1: Add a failing regression test for state plus display override if Task 1 did not already cover it**
 
@@ -225,20 +209,15 @@ assert.equal(toPublicSession(session).displayState, "approval");
 assert.equal(toPublicSession(session).state, "working");
 ```
 
-- [ ] **Step 5: Mirror any required store/contract changes into `packages/core/src/*`**
-
-Run: `diff -u packages/cli/src/core/store/session-store.js packages/core/src/store/session-store.js`  
-Expected: no unintended drift beyond deliberate mirrored edits.
-
-- [ ] **Step 6: Run the focused runtime/state tests**
+- [ ] **Step 5: Run the focused runtime/state tests**
 
 Run: `node --test packages/cli/src/core/store/session-store.test.js packages/cli/src/core/providers/codex.test.js`  
 Expected: PASS
 
-- [ ] **Step 7: Commit the runtime merge fix**
+- [ ] **Step 6: Commit the runtime merge fix**
 
 ```bash
-git add packages/cli/src/runtime/pty-manager.js packages/cli/src/core/store/session-store.js packages/core/src/store/session-store.js packages/cli/src/core/session-contract.js packages/core/src/session-contract.js packages/cli/src/core/store/session-store.test.js
+git add packages/cli/src/runtime/pty-manager.js packages/cli/src/core/store/session-store.js packages/cli/src/core/session-contract.js packages/cli/src/core/store/session-store.test.js
 git commit -m "fix: merge Codex transcript lifecycle with runtime overlays"
 ```
 

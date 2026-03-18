@@ -18,12 +18,15 @@ import { useSessionsStore } from "@/store/sessions";
 import { useAuthStore } from "@/store/auth";
 import { RELAY_BASE } from "@/lib/config";
 import { api } from "@/lib/api";
+import { detectMobilePlatform, platformRecoveryMessage } from "@/lib/live-recovery";
 
 export function OfficePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessions = useSessionsStore((s) => s.sessions);
   const connected = useSessionsStore((s) => s.connected);
+  const platform = detectMobilePlatform();
+  const showMobileGuidance = platform !== "web";
 
   const [showLaunchDialog, setShowLaunchDialog] = useState(false);
   const [launchTitle, setLaunchTitle] = useState("");
@@ -136,6 +139,19 @@ export function OfficePage() {
           </Button>
         </div>
       </header>
+
+      {showMobileGuidance && (
+        <section className="px-5 pb-3">
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-sm text-amber-950">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-amber-700">
+              {platform === "ios" ? "iOS Guidance" : "Android Guidance"}
+            </p>
+            <p className="mt-1 leading-5">
+              {platformRecoveryMessage(platform)}
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* Godot Frame — hidden while dialog is open so iframe doesn't cover the overlay */}
       <section className={`flex-1 flex justify-center min-h-0 overflow-hidden${showLaunchDialog ? " invisible" : ""}`}>

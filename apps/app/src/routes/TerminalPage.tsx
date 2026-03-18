@@ -15,6 +15,7 @@ import { CopyButton } from "@/components/shared/CopyButton";
 import { MobileKeybar } from "@/components/shared/MobileKeybar";
 import { TerminalLoading } from "@/components/shared/TerminalLoading";
 import { getRelayWsQuery } from "@/lib/relay-ws";
+import { shouldReplaceSocketOnResume } from "@/lib/live-recovery";
 import { useAuthStore } from "@/store/auth";
 import { useSessionsStore } from "@/store/sessions";
 import { RELAY_BASE } from "@/lib/config";
@@ -77,9 +78,12 @@ export function TerminalPage() {
   const sendInputRef = useRef<(data: string) => void>(() => {});
   const reconnDelay = useRef(1000);
   const reconnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disposed = useRef(false);
   const rafRef = useRef<number | null>(null);
+  const lastMessageAtRef = useRef<number | null>(null);
   const [termReady, setTermReady] = useState(false);
+  const TERMINAL_STALE_AFTER_MS = 1500;
 
   useEffect(() => {
     if (!hostRef.current || !sessionId || !userId) return;
@@ -161,10 +165,21 @@ export function TerminalPage() {
 
       ws.addEventListener("open", () => {
         reconnDelay.current = 1000;
+        if (firstMessageTimer.current) clearTimeout(firstMessageTimer.current);
+        firstMessageTimer.current = setTimeout(() => {
+          if (wsRef.current === ws && !disposed.current && lastMessageAtRef.current == null) {
+            ws.close();
+          }
+        }, TERMINAL_STALE_AFTER_MS);
         scheduleFit();
       });
 
       ws.addEventListener("message", (e) => {
+        lastMessageAtRef.current = Date.now();
+        if (firstMessageTimer.current) {
+          clearTimeout(firstMessageTimer.current);
+          firstMessageTimer.current = null;
+        }
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === "terminal:data") {
@@ -185,6 +200,10 @@ export function TerminalPage() {
 
       ws.addEventListener("close", (ev) => {
         if (disposed.current) return;
+        if (firstMessageTimer.current) {
+          clearTimeout(firstMessageTimer.current);
+          firstMessageTimer.current = null;
+        }
         if (ev.code === 4401 || ev.reason === "unauthorized" || ev.reason === "token_expired") return;
         term.write("\r\n[connection lost, reconnecting...]\r\n");
         reconnTimer.current = setTimeout(() => {
@@ -234,10 +253,19 @@ export function TerminalPage() {
     function handleResume() {
       if (disposed.current) return;
       const w = wsRef.current;
-      if (w && w.readyState === WebSocket.OPEN) return; // still alive
-      // Kill pending backoff timer and reconnect with fresh token
+      if (
+        w &&
+        !shouldReplaceSocketOnResume({
+          readyState: w.readyState,
+          lastMessageAt: lastMessageAtRef.current,
+          staleAfterMs: TERMINAL_STALE_AFTER_MS,
+        })
+      ) {
+        return;
+      }
       if (reconnTimer.current) { clearTimeout(reconnTimer.current); reconnTimer.current = null; }
       reconnDelay.current = 1000;
+      lastMessageAtRef.current = null;
       if (w) { w.close(); wsRef.current = null; }
       void connect(true);
     }
@@ -258,6 +286,7 @@ export function TerminalPage() {
       document.removeEventListener("visibilitychange", onVisibility);
       appListener.then((l) => l.remove());
       if (reconnTimer.current) clearTimeout(reconnTimer.current);
+      if (firstMessageTimer.current) clearTimeout(firstMessageTimer.current);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       dataDisposable.dispose();
       wsRef.current?.close();

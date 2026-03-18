@@ -1,9 +1,11 @@
+const { displayZoneFor } = require("./state");
+
 const CONTRACT_VERSION = 1;
 
 function sessionLifecycle(session) {
   const status = session.status || "registered";
   const displayState = session.displayState || session.state || "idle";
-  const displayZone = session.displayZone || "working-zone";
+  const displayZone = session.displayZone || displayZoneFor(displayState);
 
   return {
     status,

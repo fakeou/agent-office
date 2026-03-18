@@ -17,7 +17,7 @@ The immediate goal of this design is to make the Codex state chain reliable from
 
 ### 1. Codex lifecycle data is incomplete
 
-`packages/core/src/providers/codex-transcript.js` reads Codex transcript files and currently derives:
+`packages/cli/src/core/providers/codex-transcript.js` reads Codex transcript files and currently derives:
 
 - `task_started` -> `working`
 - `task_complete` -> `idle`
@@ -158,7 +158,7 @@ Optional hardening for later:
 
 ### D. Store and Public Contract Consumption
 
-`packages/core/src/session-contract.js` already exposes `state`, `displayState`, and `displayZone`. This is the right shape and should be preserved.
+`packages/cli/src/core/session-contract.js` already exposes `state`, `displayState`, and `displayZone`. This is the right shape and should be preserved.
 
 The backend store logic should ensure:
 

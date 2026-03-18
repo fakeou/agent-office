@@ -91,7 +91,7 @@ Message types on the tunnel WebSocket:
 
 ### Current Module Layout
 
-The project is organized as a pnpm monorepo with three packages:
+The project is organized as a pnpm monorepo, but the live daemon logic now sits under `packages/cli/src/*`:
 
 **`packages/cli/` (`agentoffice`)** — CLI entrypoint and local daemon
 
@@ -104,28 +104,23 @@ The project is organized as a pnpm monorepo with three packages:
 - `src/tunnel.js`
   Relay tunnel client: connects to the Relay server via WebSocket, proxies HTTP requests and WebSocket connections to the local daemon, sends status summaries, and handles heartbeat/reconnection.
 
-**`packages/core/` (`@agentoffice/core`)** — Shared state, store, and config
-
-- `src/store/session-store.js`
+- `src/core/store/session-store.js`
   In-memory session registry, logs, event history, and update emitter.
-- `src/config.js`
+- `src/core/config.js`
   Shared constants (default host, port, server URL).
-- `src/state.js`
+- `src/core/state.js`
   Shared display-state constants and office zone mapping.
-- `src/providers/`
+- `src/core/providers/`
   Provider registry and adapters (Claude, Codex, Generic).
-
-**`packages/runtime/` (`@agentoffice/runtime`)** — PTY, tmux, and CLI helpers
-
-- `src/pty-manager.js`
+- `src/runtime/pty-manager.js`
   Managed PTY lifecycle, tmux-backed session lifecycle, terminal WebSocket binding, shared-session attach flow, and launch registration only after transport startup succeeds.
-- `src/ensure-node-pty.js`
+- `src/runtime/ensure-node-pty.js`
   Repairs `node-pty` spawn-helper execute permissions on macOS.
-- `src/cli-helpers.js`
+- `src/runtime/cli-helpers.js`
   CLI preflight checks, LAN URL discovery, command resolution, and Claude hook installation helpers.
-- `src/session-registry.js`
+- `src/runtime/session-registry.js`
   Local file registry for tmux-backed worker metadata so the daemon can restore sessions after restart.
-- `src/tmux.js`
+- `src/runtime/tmux.js`
   tmux session creation, pane inspection, attach-client spawning, and local attach command generation.
 
 **`packages/web/` (`@agentoffice/web`)** — Frontend assets
@@ -355,4 +350,6 @@ Managed tmux launches now `exec` the target agent command inside the pane so wor
 2. Extend the provider interface with declared capabilities such as `supportsHooks`, `supportsManagedPty`, and `supportsTerminalAttach`.
 3. Add a dedicated archive/history view for completed or exited sessions that are intentionally hidden from the live office.
 4. Add persistence for session history.
-5. Add a future Kimi/ACP adapter without changing the office UI contract.
+5. Apply the same lifecycle-vs-display overlay contract consistently to future Claude and non-Codex provider improvements.
+6. Keep transport and relay latency work on a separate track from provider state-contract changes.
+7. Add a future Kimi/ACP adapter without changing the office UI contract.

@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.32.1",
   "description": "Local-first AI office supervisor for Claude, Codex, and other terminal coding agents.",
   "scripts": {
-    "postinstall": "node -e \"const { ensureNodePtySpawnHelper } = require('./packages/runtime/src/ensure-node-pty'); const result = ensureNodePtySpawnHelper(); if (result.changed.length) console.log('Repaired node-pty spawn-helper permissions:', result.changed.join(', '));\"",
+    "postinstall": "node -e \"const { ensureNodePtySpawnHelper } = require('./packages/cli/src/runtime/ensure-node-pty'); const result = ensureNodePtySpawnHelper(); if (result.changed.length) console.log('Repaired node-pty spawn-helper permissions:', result.changed.join(', '));\"",
     "start": "node packages/cli/src/index.js start",
     "app:dev": "pnpm --filter @agent-office/app dev",
     "app:build": "pnpm --filter @agent-office/app build",
