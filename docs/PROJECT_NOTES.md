@@ -268,7 +268,9 @@ Current strategy:
 - `task_started` -> `working`
 - `task_complete` -> `idle`
 - `turn_aborted` -> `idle`
-- provider-specific terminal text parsing only as a last-resort fallback for `approval` and `attention`
+- transcript reconciliation owns lifecycle `state`
+- provider-specific terminal text parsing raises `displayState` overlays for `approval` and `attention`
+- `displayState` may temporarily differ from lifecycle `state` when the worker is blocked or needs operator attention
 
 ### Other Providers
 
