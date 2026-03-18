@@ -1,7 +1,7 @@
 const crypto = require("node:crypto");
 const os = require("node:os");
 const pty = require("node-pty");
-const { getProvider } = require("../core");
+const { displayZoneFor, getProvider } = require("../core");
 const {
   AGENTOFFICE_TMUX_PREFIX,
   attachClient,
@@ -350,20 +350,21 @@ function createPtyManager({ store }) {
         }
 
         const provider = getProvider(session.provider);
-        const reconcileResult = provider.reconcileSession(session, { sessions: currentSessions });
-        // Only run screen-based classifyOutput when the session has no transcript-driven state.
-        // For providers like Codex that use a transcript (codexSessionPath set), classifyOutput
-        // on the raw terminal text is unreliable and fights the transcript state machine, causing
-        // the session to flicker between "attention" and "idle" every polling tick.
-        const hasTranscriptState = Boolean(session.meta && session.meta.codexSessionPath);
-        if (!hasTranscriptState && (!reconcileResult || !reconcileResult.state)) {
-          const screen = await capturePane(runtime.tmuxSession);
-          const nextState = runtime.provider.classifyOutput(screen, store.getSession(session.sessionId));
-          if (nextState && nextState !== session.displayState) {
-            store.setSessionState(session.sessionId, nextState, { status: "running" });
-          }
+        const screen = await capturePane(runtime.tmuxSession);
+        const latestSession = store.getSession(session.sessionId) || session;
+        const overlayState = runtime.provider.classifyOutput(screen, latestSession);
+
+        if (overlayState && overlayState !== latestSession.displayState) {
+          store.setSessionState(session.sessionId, latestSession.state || "working", {
+            status: "running",
+            displayState: overlayState,
+            displayZone: displayZoneFor(overlayState)
+          });
         }
-        applyProviderReconcile(session, reconcileResult);
+
+        const reconciledSession = store.getSession(session.sessionId) || session;
+        const reconcileResult = provider.reconcileSession(reconciledSession, { sessions: currentSessions });
+        applyProviderReconcile(reconciledSession, reconcileResult);
         continue;
       }
 
