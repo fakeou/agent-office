@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Plus, FolderOpen } from "lucide-react";
 import { MenuButton } from "@/components/layout/NavSheet";
 import { GodotOfficeFrame } from "@/components/GodotOfficeFrame";
 import { useSessionsStore } from "@/store/sessions";
@@ -31,12 +31,29 @@ export function OfficePage() {
   const [launchProvider, setLaunchProvider] = useState<"claude" | "codex">("claude");
   const [launchPending, setLaunchPending] = useState(false);
   const [launchError, setLaunchError] = useState("");
+  const [dirs, setDirs] = useState<string[]>([]);
+  const [homedir, setHomedir] = useState("");
 
   function onWorkerClick(sessionId: string) {
     if (location.pathname !== "/office") return;
     navigate(`/terminal/${sessionId}`, {
       state: { backgroundLocation: location },
     });
+  }
+
+  async function fetchDirs(dirPath?: string) {
+    const { userId } = useAuthStore.getState();
+    try {
+      const query = dirPath ? `?path=${encodeURIComponent(dirPath)}` : "";
+      const data = await api(`${RELAY_BASE}/tunnel/${userId}/api/dirs${query}`) as {
+        home: string; path: string; dirs: string[];
+      };
+      if (!dirPath && data.home) {
+        setHomedir(data.home);
+        setLaunchCwd((prev) => prev || data.home);
+      }
+      setDirs(data.dirs ?? []);
+    } catch { /* offline */ }
   }
 
   async function handleLaunch() {
@@ -74,16 +91,18 @@ export function OfficePage() {
     }
   }
 
-  function openLaunchDialog(provider: "claude" | "codex") {
-    setLaunchProvider(provider);
+  function openLaunchDialog() {
+    setLaunchProvider("claude");
     setLaunchTitle("");
     setLaunchCwd("");
     setLaunchError("");
+    setDirs([]);
     setShowLaunchDialog(true);
+    void fetchDirs();
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex h-screen flex-col overflow-hidden bg-white">
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
@@ -111,19 +130,15 @@ export function OfficePage() {
             />
             {connected ? "Live" : "Offline"}
           </Badge>
-          <Button size="sm" variant="outline" onClick={() => openLaunchDialog("claude")}>
+          <Button size="sm" variant="outline" onClick={openLaunchDialog}>
             <Plus className="mr-1 h-3.5 w-3.5" />
-            Claude
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => openLaunchDialog("codex")}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Codex
+            Launch Worker
           </Button>
         </div>
       </header>
 
-      {/* Godot Frame */}
-      <section className="flex-1 flex justify-center">
+      {/* Godot Frame — hidden while dialog is open so iframe doesn't cover the overlay */}
+      <section className={`flex-1 flex justify-center min-h-0 overflow-hidden${showLaunchDialog ? " invisible" : ""}`}>
         <div className="w-full md:max-w-[480px]">
           <GodotOfficeFrame
             connected={connected}
@@ -137,9 +152,7 @@ export function OfficePage() {
       <Dialog open={showLaunchDialog} onOpenChange={setShowLaunchDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>
-              Launch {launchProvider === "claude" ? "Claude" : "Codex"}
-            </DialogTitle>
+            <DialogTitle>Launch Worker</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             {launchError && (
@@ -178,12 +191,41 @@ export function OfficePage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="launch-cwd">Working Directory</Label>
-              <Input
-                id="launch-cwd"
-                placeholder="/Users/you/project (optional)"
-                value={launchCwd}
-                onChange={(e) => setLaunchCwd(e.target.value)}
-              />
+              <div className="flex gap-1.5">
+                <Input
+                  id="launch-cwd"
+                  placeholder={homedir || "/Users/you/project (optional)"}
+                  value={launchCwd}
+                  onChange={(e) => {
+                    setLaunchCwd(e.target.value);
+                    void fetchDirs(e.target.value);
+                  }}
+                />
+                {homedir && launchCwd !== homedir && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    title="Go to home directory"
+                    onClick={() => { setLaunchCwd(homedir); void fetchDirs(homedir); }}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {dirs.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {dirs.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => { setLaunchCwd(d); void fetchDirs(d); }}
+                      className="rounded-md border border-border bg-muted/40 px-2 py-0.5 text-[0.7rem] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      {d.split("/").pop()}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>

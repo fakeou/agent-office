@@ -11,7 +11,8 @@
       "Bash(npm config get prefix)",
       "Bash(n8n --version)",
       "mcp__chrome-devtools__navigate_page",
-      "mcp__chrome-devtools__take_screenshot"
+      "mcp__chrome-devtools__take_screenshot",
+      "Bash(lsof -ti :8765 | xargs kill -9 2>/dev/null && echo \"killed\" || echo \"no process on 8765\")"
     ]
   }
 }

@@ -1,4 +1,7 @@
+const fs = require("node:fs");
 const http = require("node:http");
+const os = require("node:os");
+const path = require("node:path");
 const express = require("express");
 const { WebSocketServer } = require("ws");
 const auth = require("./auth");
@@ -110,6 +113,20 @@ function createAppServer({ host, port, store, ptyManager }) {
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
+  });
+
+  // Returns home dir + subdirectories of a given path (for working directory picker)
+  app.get("/api/dirs", (req, res) => {
+    const home = os.homedir();
+    const target = String(req.query.path || home);
+    let entries = [];
+    try {
+      entries = fs.readdirSync(target, { withFileTypes: true })
+        .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+        .map((e) => path.join(target, e.name))
+        .slice(0, 50);
+    } catch { /* unreadable dir */ }
+    res.json({ home, path: target, dirs: entries });
   });
 
   app.get("/api/sessions", (_req, res) => {
