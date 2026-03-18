@@ -113,6 +113,7 @@ ato start --key sk_your_api_key --relay https://your-relay.example.com
 
 ## Documentation
 
+- [`docs/DEPLOY.md`](docs/DEPLOY.md) — Production deployment and remote operations
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — Development roadmap and feature checklist
 - [`docs/PROJECT_NOTES.md`](docs/PROJECT_NOTES.md) — Architecture, state model, and provider notes
 - [`docs/TEST_GUIDE.md`](docs/TEST_GUIDE.md) — UI testing guide
