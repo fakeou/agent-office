@@ -503,18 +503,25 @@ function createPtyManager({ store }) {
 
     let attachedClient = null;
     let tmuxStreamStarted = false;
+    let pendingCols = 120;
+    let pendingRows = 32;
 
     async function startTmuxStream(cols, rows) {
       if (tmuxStreamStarted || !entry || entry.transport !== "tmux") {
         return;
       }
       tmuxStreamStarted = true;
+      pendingCols = cols;
+      pendingRows = rows;
       try {
         const snapshot = await capturePane(entry.tmuxSession);
         if (snapshot && ws.readyState === 1) {
           ws.send(JSON.stringify({ type: "terminal:data", data: `${snapshot}\r\n` }));
         }
         attachedClient = attachClient(entry.tmuxSession, { cwd: entry.cwd, cols, rows });
+        if (pendingCols !== cols || pendingRows !== rows) {
+          attachedClient.resize(pendingCols, pendingRows);
+        }
         attachedClient.onData((chunk) => {
           if (ws.readyState === 1) {
             ws.send(JSON.stringify({ type: "terminal:data", data: chunk }));
@@ -532,7 +539,12 @@ function createPtyManager({ store }) {
 
     // For non-tmux transports that had immediate setup, keep original behavior
     if (entry && entry.transport === "pty") {
-      // PTY sessions stream via broadcastTerminal, no per-client attach needed
+      const replay = store.getTerminalReplay(sessionId);
+      if (replay) {
+        ws.send(JSON.stringify({ type: "terminal:data", data: replay }));
+      }
+    } else if (entry && entry.transport === "tmux") {
+      void startTmuxStream(120, 32);
     }
 
     ws.on("message", async (raw) => {
@@ -553,6 +565,8 @@ function createPtyManager({ store }) {
         if (message.type === "resize") {
           const cols = Number(message.cols || 120);
           const rows = Number(message.rows || 32);
+          pendingCols = cols;
+          pendingRows = rows;
           if (runtime.transport === "pty") {
             runtime.pty.resize(cols, rows);
           } else if (!tmuxStreamStarted) {

@@ -48,3 +48,21 @@ test("setSessionState derives displayZone from displayState override when zone i
   assert.equal(next.displayState, "attention");
   assert.equal(next.displayZone, "attention-zone");
 });
+
+test("appendOutput keeps a raw terminal replay buffer for fast reconnects", () => {
+  const store = createSessionStore();
+  store.upsertSession({
+    sessionId: "sess_3",
+    provider: "generic",
+    title: "Shell",
+    command: "bash",
+    cwd: process.cwd(),
+    state: "working",
+    status: "running"
+  });
+
+  store.appendOutput("sess_3", "line one\r\n");
+  store.appendOutput("sess_3", "line two\n");
+
+  assert.equal(store.getTerminalReplay("sess_3"), "line one\r\nline two\n");
+});

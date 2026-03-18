@@ -1,7 +1,7 @@
 const { EventEmitter } = require("node:events");
 const os = require("node:os");
 const crypto = require("node:crypto");
-const { LOG_LIMIT } = require("../config");
+const { LOG_LIMIT, TERMINAL_REPLAY_LIMIT } = require("../config");
 const { displayZoneFor } = require("../state");
 const { toPublicSession, toSessionSummary } = require("../session-contract");
 
@@ -53,7 +53,8 @@ function createSessionStore() {
       host: payload.host || os.hostname(),
       meta: { ...(payload.meta || {}) },
       logs: [...(payload.logs || [])],
-      events: [...(payload.events || [])]
+      events: [...(payload.events || [])],
+      terminalReplay: String(payload.terminalReplay || "")
     };
   }
 
@@ -151,6 +152,10 @@ function createSessionStore() {
     const lines = String(chunk).replace(/\r/g, "").split("\n").filter(Boolean);
     session.logs.push(...lines);
     session.logs = session.logs.slice(-LOG_LIMIT);
+    session.terminalReplay = `${session.terminalReplay || ""}${String(chunk)}`;
+    if (session.terminalReplay.length > TERMINAL_REPLAY_LIMIT) {
+      session.terminalReplay = session.terminalReplay.slice(-TERMINAL_REPLAY_LIMIT);
+    }
     session.lastOutputAt = isoNow();
     session.updatedAt = session.lastOutputAt;
     // Terminal output does not change session state — skip session:update broadcast.
@@ -189,6 +194,11 @@ function createSessionStore() {
     return session ? toSessionSummary(session) : null;
   }
 
+  function getTerminalReplay(sessionId) {
+    const session = sessions.get(sessionId);
+    return session ? session.terminalReplay || "" : "";
+  }
+
   function listSessions() {
     return [...sessions.values()]
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
@@ -224,6 +234,7 @@ function createSessionStore() {
     markExit,
     getSession,
     getSessionSummary,
+    getTerminalReplay,
     listSessions,
     listSessionSummaries,
     removeSession
