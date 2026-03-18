@@ -26,6 +26,8 @@ test("remote deploy script exists and covers the production deployment flow", ()
   assert.match(script, /\/opt\/agentoffice/);
   assert.match(script, /git fetch --tags origin main/);
   assert.match(script, /pnpm install --frozen-lockfile/);
+  assert.match(script, /python3\.11/);
+  assert.match(script, /npm_config_python/);
   assert.match(script, /pnpm --filter @agent-office\/app build/);
   assert.match(script, /pnpm rebuild better-sqlite3 node-pty esbuild/);
   assert.match(script, /systemctl restart agentoffice-api\.service agentoffice-relay\.service/);

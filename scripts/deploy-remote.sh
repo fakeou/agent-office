@@ -23,6 +23,13 @@ git checkout -B main FETCH_HEAD
 git reset --hard "FETCH_HEAD"
 git clean -fdx
 
+if ! command -v python3.11 >/dev/null 2>&1; then
+  dnf install -y python3.11
+fi
+
+export npm_config_python="$(command -v python3.11)"
+export PYTHON="$npm_config_python"
+
 pnpm install --frozen-lockfile
 pnpm rebuild better-sqlite3 node-pty esbuild
 pnpm --filter @agent-office/app build
