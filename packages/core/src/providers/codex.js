@@ -1,6 +1,32 @@
 const { GenericProvider } = require("./generic");
 const { findManagedCodexSessionFile, summarizeCodexSession } = require("./codex-transcript");
 
+function activeOverlayPatch(session, nextLifecycleState) {
+  if (!session || !["approval", "attention"].includes(session.displayState)) {
+    return null;
+  }
+
+  if (nextLifecycleState === "idle") {
+    return {
+      displayState: "idle",
+      displayZone: "idle-zone",
+      meta: {
+        overlayState: null,
+        overlayUpdatedAt: null
+      }
+    };
+  }
+
+  return {
+    displayState: session.displayState,
+    displayZone: session.displayZone,
+    meta: {
+      overlayState: session.displayState,
+      overlayUpdatedAt: session.updatedAt || null
+    }
+  };
+}
+
 class CodexProvider extends GenericProvider {
   constructor() {
     super("codex");
@@ -25,7 +51,14 @@ class CodexProvider extends GenericProvider {
     if (text.includes("approval") || text.includes("press enter") || text.includes("confirm")) {
       return "approval";
     }
-    if (text.includes("error") || text.includes("failed") || text.includes("panic")) {
+    if (
+      text.includes("network error") ||
+      text.includes("connection timeout") ||
+      text.includes("timed out") ||
+      text.includes("error") ||
+      text.includes("failed") ||
+      text.includes("panic")
+    ) {
       return "attention";
     }
     return null;
@@ -50,7 +83,8 @@ class CodexProvider extends GenericProvider {
     };
 
     const previousPath = session.meta && session.meta.codexSessionPath;
-    const previousState = session.displayState;
+    const overlay = activeOverlayPatch(session, summary.state);
+    const previousState = session.state;
     const previousCursor = session.meta && session.meta.codexTranscriptCursor;
     const previousLifecycle = session.meta && session.meta.codexLastLifecycle;
     const lifecycleAdvanced = Boolean(summary.lastTimestamp && summary.lastTimestamp !== previousCursor);
@@ -68,20 +102,32 @@ class CodexProvider extends GenericProvider {
     return {
       session: metaChanged
         ? {
-        meta: nextMeta
+            meta: nextMeta
           }
         : null,
       state: summary.state,
-      patch: summary.state ? { status: "running" } : null,
-      eventName: lifecycleAdvanced && summary.lastLifecycle ? `codex_${summary.lastLifecycle}` : null,
-      meta: lifecycleAdvanced
+      patch: summary.state
         ? {
-            codexSessionPath: matched.path,
-            codexSessionId: matched.sessionMeta && matched.sessionMeta.id,
-            turnId: summary.lastTurnId || null,
-            lastAgentMessage: summary.lastAgentMessage || null
+            status: "running",
+            ...(overlay
+              ? {
+                  displayState: overlay.displayState,
+                  displayZone: overlay.displayZone
+                }
+              : {})
           }
-        : null
+        : null,
+      eventName: lifecycleAdvanced && summary.lastLifecycle ? `codex_${summary.lastLifecycle}` : null,
+      meta:
+        lifecycleAdvanced || overlay
+          ? {
+              codexSessionPath: matched.path,
+              codexSessionId: matched.sessionMeta && matched.sessionMeta.id,
+              turnId: summary.lastTurnId || null,
+              lastAgentMessage: summary.lastAgentMessage || null,
+              ...(overlay ? overlay.meta : {})
+            }
+          : null
     };
   }
 }
