@@ -8,12 +8,12 @@ export interface TokenCache {
 
 export function isCacheValid(cache: TokenCache | null, now = Date.now()): cache is TokenCache {
   if (!cache) return false;
-  if (!cache.expiresAt) return true; // no expiry info → treat as valid indefinitely
+  if (cache.expiresAt === null) return true; // no expiry info → treat as valid indefinitely
   return now < cache.expiresAt - CACHE_SAFE_MARGIN_MS;
 }
 
 export function proactiveRefreshDelay(expiresAt: number | null, now = Date.now()): number | null {
-  if (!expiresAt) return null;
+  if (expiresAt === null) return null;
   const delay = expiresAt - now - PROACTIVE_REFRESH_MS;
   return delay > 0 ? delay : null;
 }
