@@ -19,7 +19,7 @@ import { getRelayWsQuery } from "@/lib/relay-ws";
 import {
   applyInputDataToBuffer,
   buildDraftSyncSequence,
-  deriveDraftFromVisibleTerminalLine,
+  resolveProxyDraftOnOpen,
 } from "@/lib/terminal-input";
 import {
   getTerminalSessionCache,
@@ -187,41 +187,12 @@ export function TerminalPage() {
     writeSessionCache({ inputBuffer: nextBuffer });
   }
 
-  function readDraftFromTerminal() {
-    const term = termRef.current;
-    if (!term) {
-      return inputBufferRef.current;
-    }
-
-    const buffer = term.buffer.active;
-    const cursorLineIndex = Math.max(0, buffer.baseY + buffer.cursorY);
-
-    for (let offset = 0; offset < 6; offset += 1) {
-      const line = buffer.getLine(Math.max(0, cursorLineIndex - offset));
-      if (!line) {
-        continue;
-      }
-
-      const visibleLine = offset === 0
-        ? line.translateToString(false, 0, buffer.cursorX)
-        : line.translateToString(true);
-
-      if (!visibleLine.trim()) {
-        continue;
-      }
-
-      return deriveDraftFromVisibleTerminalLine(visibleLine, inputBufferRef.current);
-    }
-
-    return inputBufferRef.current;
-  }
-
   function openProxyInput() {
     if (!isTouchDevice || !termReady) {
       return;
     }
 
-    commitInputBuffer(readDraftFromTerminal());
+    commitInputBuffer(resolveProxyDraftOnOpen(inputBufferRef.current));
     setProxyInputOpen(true);
   }
 
@@ -342,10 +313,6 @@ export function TerminalPage() {
           const msg = JSON.parse(e.data);
           if (msg.type === "terminal:data") {
             term.write(msg.data);
-            const visibleDraft = readDraftFromTerminal();
-            if (visibleDraft !== inputBufferRef.current) {
-              commitInputBuffer(visibleDraft);
-            }
             if (!gotFirstData) {
               gotFirstData = true;
               setTermReady(true);

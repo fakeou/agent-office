@@ -18,7 +18,7 @@ import {
 } from "./lib/android-back-exit";
 import { useAuthStore } from "./store/auth";
 import { hasValidJwt } from "./lib/jwt";
-import { getRouteNavMode } from "./lib/route-nav";
+import { getFloatingRouteNavLayerClass, getRouteNavMode } from "./lib/route-nav";
 
 const OFFICE_BACK_EXIT_WINDOW_MS = 2000;
 
@@ -37,7 +37,9 @@ function FloatingRouteNav() {
 
   return (
     <div
-      className="pointer-events-none fixed left-0 top-0 z-40"
+      className={`pointer-events-none fixed left-0 top-0 ${getFloatingRouteNavLayerClass(
+        isTerminalRoute && hasBackgroundLocation,
+      )}`}
       style={{
         paddingTop: "calc(env(safe-area-inset-top) + 12px)",
         paddingLeft: "calc(env(safe-area-inset-left) + 12px)",

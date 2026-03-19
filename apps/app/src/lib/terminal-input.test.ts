@@ -6,6 +6,7 @@ import {
   applyInputDataToBuffer,
   buildDraftSyncSequence,
   deriveDraftFromVisibleTerminalLine,
+  resolveProxyDraftOnOpen,
 } from "./terminal-input.ts";
 
 test("mobile terminal key list removes ctrl+d", () => {
@@ -18,6 +19,11 @@ test("draft sync erases the stale line before writing the new text", () => {
 
 test("draft sync is empty when nothing changed", () => {
   assert.equal(buildDraftSyncSequence("same", "same"), "");
+});
+
+test("proxy input opens with only the current device cached draft", () => {
+  assert.equal(resolveProxyDraftOnOpen("pnpm build"), "pnpm build");
+  assert.equal(resolveProxyDraftOnOpen(""), "");
 });
 
 test("visible shell prompt line derives the editable draft", () => {

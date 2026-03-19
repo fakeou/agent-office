@@ -20,6 +20,7 @@ import { api } from "@/lib/api";
 import { resolveOfficeConnected } from "@/lib/office-connection";
 import {
   formatLaunchError,
+  getOfficeHeaderSafeAreaPaddingTop,
   getParentDirectory,
   shouldShowOfficeHeaderText,
 } from "@/lib/office-launch";
@@ -135,7 +136,10 @@ export function OfficePage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-5 py-4">
+      <header
+        className="relative z-10 flex items-center justify-between px-5 pb-4"
+        style={{ paddingTop: getOfficeHeaderSafeAreaPaddingTop() }}
+      >
         <div className="flex items-center gap-3">
           {showOfficeHeaderText ? (
             <div className="pl-12">

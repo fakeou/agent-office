@@ -11,3 +11,7 @@ export function getRouteNavMode(pathname: string): RouteNavMode {
 
   return "none";
 }
+
+export function getFloatingRouteNavLayerClass(hasTerminalOverlay: boolean) {
+  return hasTerminalOverlay ? "z-[60]" : "z-40";
+}

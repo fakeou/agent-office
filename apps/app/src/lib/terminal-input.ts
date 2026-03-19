@@ -23,6 +23,10 @@ export function buildDraftSyncSequence(currentBuffer: string, nextDraft: string)
   return "\x7f".repeat(Array.from(currentBuffer).length) + nextDraft;
 }
 
+export function resolveProxyDraftOnOpen(localCachedDraft: string) {
+  return localCachedDraft;
+}
+
 const PROMPT_PATTERNS = [
   /[$#%>]\s([^\r\n]*)$/,
   /[❯›➜λ]\s([^\r\n]*)$/,

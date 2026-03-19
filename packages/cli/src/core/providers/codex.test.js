@@ -72,3 +72,39 @@ test("classifyOutput can raise attention for transcript-backed sessions", () => 
 
   assert.equal(nextState, "attention");
 });
+
+test("classifyOutput treats user interrupted Codex screens as idle", () => {
+  const provider = new CodexProvider();
+  const nextState = provider.classifyOutput(
+    "Conversation interrupted - tell the model what to do differently. Something went wrong? Hit `/feedback` to report the issue."
+  );
+
+  assert.equal(nextState, "idle");
+});
+
+test("classifyOutput treats stream disconnects as attention", () => {
+  const provider = new CodexProvider();
+  const nextState = provider.classifyOutput(
+    "stream disconnected before completion: error sending request for url (http://54.255.64.152:3000/openai/responses)"
+  );
+
+  assert.equal(nextState, "attention");
+});
+
+test("classifyOutput does not treat plain explanatory approval text as a real approval prompt", () => {
+  const provider = new CodexProvider();
+  const nextState = provider.classifyOutput(
+    "只有真实审批提示才归到 approval"
+  );
+
+  assert.equal(nextState, null);
+});
+
+test("classifyOutput recognizes real Codex approval prompts", () => {
+  const provider = new CodexProvider();
+  const nextState = provider.classifyOutput(
+    "Approval requested: Codex wants to edit files"
+  );
+
+  assert.equal(nextState, "approval");
+});

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3] - 2026-03-19
+
+### Fixed
+- Codex sessions now classify user `esc` interruptions as `idle` instead of `approval`
+- Codex network stream failures such as `stream disconnected before completion` now surface as `attention`
+- Tightened approval detection so plain terminal text mentioning `approval` no longer triggers a false `approval` state
+
 ## [0.1.2] - 2026-03-19
 
 ### Changed

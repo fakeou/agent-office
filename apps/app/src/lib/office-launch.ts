@@ -20,6 +20,10 @@ export function shouldShowOfficeHeaderText(platform: MobilePlatform) {
   return platform === "web";
 }
 
+export function getOfficeHeaderSafeAreaPaddingTop() {
+  return "calc(env(safe-area-inset-top) + 16px)";
+}
+
 export function getParentDirectory(dirPath: string) {
   const normalized = dirPath.trim();
   if (!normalized) {

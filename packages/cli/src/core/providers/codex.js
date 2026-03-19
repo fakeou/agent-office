@@ -1,6 +1,31 @@
 const { GenericProvider } = require("./generic");
 const { findManagedCodexSessionFile, summarizeCodexSession } = require("./codex-transcript");
 
+const APPROVAL_PATTERNS = [
+  "approval requested:",
+  "approval requested by ",
+  "tool call needs your approval",
+  "requires approval by policy",
+  "requires approval:"
+];
+
+const IDLE_PATTERNS = [
+  "conversation interrupted - tell the model what to do differently",
+  "something went wrong? hit `/feedback` to",
+  "something went wrong? hit /feedback to"
+];
+
+const ATTENTION_PATTERNS = [
+  "stream disconnected before completion",
+  "error sending request for url",
+  "network error",
+  "connection timeout",
+  "timed out",
+  "failed to send request",
+  "failed to submit",
+  "panic"
+];
+
 function activeOverlayPatch(session, nextLifecycleState) {
   if (!session || !["approval", "attention"].includes(session.displayState)) {
     return null;
@@ -48,19 +73,19 @@ class CodexProvider extends GenericProvider {
 
   classifyOutput(chunk) {
     const text = String(chunk).toLowerCase();
-    if (text.includes("approval") || text.includes("press enter") || text.includes("confirm")) {
+
+    if (IDLE_PATTERNS.some((pattern) => text.includes(pattern))) {
+      return "idle";
+    }
+
+    if (APPROVAL_PATTERNS.some((pattern) => text.includes(pattern))) {
       return "approval";
     }
-    if (
-      text.includes("network error") ||
-      text.includes("connection timeout") ||
-      text.includes("timed out") ||
-      text.includes("error") ||
-      text.includes("failed") ||
-      text.includes("panic")
-    ) {
+
+    if (ATTENTION_PATTERNS.some((pattern) => text.includes(pattern))) {
       return "attention";
     }
+
     return null;
   }
 
