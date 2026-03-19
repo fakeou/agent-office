@@ -25,6 +25,7 @@ import {
   getParentDirectory,
   shouldShowOfficeHeaderText,
 } from "@/lib/office-launch";
+import { getOfficeDiagnosticsRows } from "@/lib/office-diagnostics";
 import { detectMobilePlatform } from "@/lib/live-recovery";
 
 function DiagRow({
@@ -71,12 +72,12 @@ export function OfficePage() {
   const reconnectNow = useSessionsStore((s) => s.reconnectNow);
   const fetchRelayStatus = useSessionsStore((s) => s.fetchRelayStatus);
   const officeConnected = resolveOfficeConnected({ eventsConnected: connected, relayOnline });
+  const diagnosticsRows = getOfficeDiagnosticsRows({ connected, relayOnline });
   const platform = detectMobilePlatform();
   const showOfficeHeaderText = shouldShowOfficeHeaderText(platform);
 
   const [showLaunchDialog, setShowLaunchDialog] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [relayReachable, setRelayReachable] = useState<boolean | null>(null);
   const [launchTitle, setLaunchTitle] = useState("");
   const [launchCwd, setLaunchCwd] = useState("");
   const [launchProvider, setLaunchProvider] = useState<"claude" | "codex">("claude");
@@ -93,25 +94,13 @@ export function OfficePage() {
     });
   }
 
-  async function checkRelayHealth() {
-    setRelayReachable(null);
-    try {
-      await api(`${RELAY_BASE}/api/relay/health`);
-      setRelayReachable(true);
-    } catch {
-      setRelayReachable(false);
-    }
-  }
-
   function openDiagnostics() {
     setShowDiagnostics(true);
-    void checkRelayHealth();
   }
 
   function retryConnections() {
     reconnectNow();
     void fetchRelayStatus().catch(() => {});
-    void checkRelayHealth();
   }
 
   async function fetchDirs(dirPath?: string) {
@@ -377,23 +366,16 @@ export function OfficePage() {
             <DialogTitle>Connection Status</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
-            <DiagRow
-              label="Frontend → Relay"
-              ok={relayReachable}
-              hint="Relay server is unreachable. Check your network or that the relay is running."
-            />
-            <div className="h-px bg-border" />
-            <DiagRow
-              label="Relay → CLI Tunnel"
-              ok={relayOnline}
-              hint="Run ato start on your computer to connect the tunnel."
-            />
-            <div className="h-px bg-border" />
-            <DiagRow
-              label="Events WebSocket"
-              ok={connected}
-              hint="WebSocket dropped. Tap Retry to reconnect."
-            />
+            {diagnosticsRows.map((row, index) => (
+              <div key={row.key}>
+                {index > 0 ? <div className="mb-3 h-px bg-border" /> : null}
+                <DiagRow
+                  label={row.label}
+                  ok={row.ok}
+                  hint={row.hint}
+                />
+              </div>
+            ))}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
