@@ -9,6 +9,7 @@ export function SessionsRuntime() {
   const userId = useAuthStore((state) => state.userId);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const fetchSessions = useSessionsStore((state) => state.fetchSessions);
+  const fetchRelayStatus = useSessionsStore((state) => state.fetchRelayStatus);
   const startWs = useSessionsStore((state) => state.startWs);
   const stopWs = useSessionsStore((state) => state.stopWs);
   const reconnectNow = useSessionsStore((state) => state.reconnectNow);
@@ -29,12 +30,18 @@ export function SessionsRuntime() {
     }
 
     fetchSessions().catch(() => {});
+    fetchRelayStatus().catch(() => {});
     startWs();
 
+    const statusTimer = window.setInterval(() => {
+      fetchRelayStatus().catch(() => {});
+    }, 3000);
+
     return () => {
+      window.clearInterval(statusTimer);
       stopWs();
     };
-  }, [fetchSessions, startWs, stopWs, tokenValid, userId]);
+  }, [fetchRelayStatus, fetchSessions, startWs, stopWs, tokenValid, userId]);
 
   // Reconnect immediately when app returns to foreground
   useEffect(() => {
@@ -44,6 +51,7 @@ export function SessionsRuntime() {
       if (isActive) {
         reconnectNow();
         fetchSessions().catch(() => {});
+        fetchRelayStatus().catch(() => {});
       }
     });
 
@@ -52,6 +60,7 @@ export function SessionsRuntime() {
       if (document.visibilityState === "visible") {
         reconnectNow();
         fetchSessions().catch(() => {});
+        fetchRelayStatus().catch(() => {});
       }
     }
     document.addEventListener("visibilitychange", handleVisibility);
@@ -60,7 +69,7 @@ export function SessionsRuntime() {
       listener.then((l) => l.remove());
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [fetchSessions, reconnectNow, tokenValid, userId]);
+  }, [fetchRelayStatus, fetchSessions, reconnectNow, tokenValid, userId]);
 
   useEffect(() => {
     if (!token || !tokenExpiryAt) {

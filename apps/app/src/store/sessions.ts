@@ -37,9 +37,11 @@ export interface Session {
 interface SessionsState {
   sessions: Session[];
   connected: boolean;
+  relayOnline: boolean;
   error: string | null;
 
   fetchSessions: () => Promise<void>;
+  fetchRelayStatus: () => Promise<void>;
   upsertSession: (s: Session) => void;
   removeSession: (sessionId: string) => void;
   startWs: () => void;
@@ -58,6 +60,7 @@ let firstMessageTimer: ReturnType<typeof setTimeout> | null = null;
 export const useSessionsStore = create<SessionsState>((set, get) => ({
   sessions: [],
   connected: false,
+  relayOnline: false,
   error: null,
 
   fetchSessions: async () => {
@@ -70,6 +73,29 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       set({ sessions: data.sessions ?? [], error: null });
     } catch (e: unknown) {
       set({ error: e instanceof Error ? e.message : "fetch_failed" });
+      throw e;
+    }
+  },
+
+  fetchRelayStatus: async () => {
+    const { userId } = useAuthStore.getState();
+    if (!userId) {
+      set({ relayOnline: false, error: "not_logged_in" });
+      return;
+    }
+
+    try {
+      const data = await api<{ online?: boolean }>(
+        `${RELAY_BASE}/api/users/${encodeURIComponent(userId)}/status`
+      );
+      set({ relayOnline: Boolean(data.online), error: null });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "relay_status_failed";
+      if (message === "user_not_found" || message === "tunnel_offline") {
+        set({ relayOnline: false });
+        return;
+      }
+      set({ relayOnline: false, error: message });
       throw e;
     }
   },
@@ -107,6 +133,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
 
         socket.onopen = () => {
           set({ connected: true, error: null });
+          void get().fetchRelayStatus().catch(() => {});
           reconnectState = getEventsReconnectStateOnOpen(reconnectState);
           if (firstMessageTimer) {
             clearTimeout(firstMessageTimer);
@@ -186,7 +213,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       firstMessageTimer = null;
     }
     connectPromise = null;
-    set({ connected: false });
+    set({ connected: false, relayOnline: false });
   },
 
   reconnectNow: () => {

@@ -18,6 +18,7 @@ import { useSessionsStore } from "@/store/sessions";
 import { useAuthStore } from "@/store/auth";
 import { RELAY_BASE } from "@/lib/config";
 import { api } from "@/lib/api";
+import { resolveOfficeConnected } from "@/lib/office-connection";
 import { detectMobilePlatform, platformRecoveryMessage } from "@/lib/live-recovery";
 
 export function OfficePage() {
@@ -25,6 +26,8 @@ export function OfficePage() {
   const location = useLocation();
   const sessions = useSessionsStore((s) => s.sessions);
   const connected = useSessionsStore((s) => s.connected);
+  const relayOnline = useSessionsStore((s) => s.relayOnline);
+  const officeConnected = resolveOfficeConnected({ eventsConnected: connected, relayOnline });
   const platform = detectMobilePlatform();
   const showMobileGuidance = platform !== "web";
 
@@ -121,17 +124,17 @@ export function OfficePage() {
           <Badge
             variant="outline"
             className={
-              connected
+              officeConnected
                 ? "border-green-200 bg-green-50 text-green-700"
                 : "text-muted-foreground"
             }
           >
             <span
               className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${
-                connected ? "bg-green-500" : "bg-muted-foreground"
+                officeConnected ? "bg-green-500" : "bg-muted-foreground"
               }`}
             />
-            {connected ? "Live" : "Offline"}
+            {officeConnected ? "Live" : "Offline"}
           </Badge>
           <Button size="sm" variant="outline" onClick={openLaunchDialog}>
             <Plus className="mr-1 h-3.5 w-3.5" />
@@ -157,7 +160,7 @@ export function OfficePage() {
       <section className={`flex-1 flex justify-center min-h-0 overflow-hidden${showLaunchDialog ? " invisible" : ""}`}>
         <div className="w-full md:max-w-[480px]">
           <GodotOfficeFrame
-            connected={connected}
+            connected={officeConnected}
             sessions={sessions}
             onWorkerClick={onWorkerClick}
           />
