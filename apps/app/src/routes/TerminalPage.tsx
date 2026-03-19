@@ -9,7 +9,7 @@ import { App } from "@capacitor/app";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowLeft, Copy, Check } from "lucide-react";
+import { ArrowLeft, Copy, Check, SendHorizonal } from "lucide-react";
 import { MenuButton } from "@/components/layout/NavSheet";
 import { CopyButton } from "@/components/shared/CopyButton";
 import { MobileKeybar } from "@/components/shared/MobileKeybar";
@@ -20,6 +20,7 @@ import { getRelayWsQuery } from "@/lib/relay-ws";
 import {
   applyInputDataToBuffer,
   buildDraftSyncSequence,
+  deriveDraftFromVisibleTerminalLine,
 } from "@/lib/terminal-input";
 import {
   getTerminalSessionCache,
@@ -109,6 +110,7 @@ export function TerminalPage() {
 
   const hostRef = useRef<HTMLDivElement | null>(null);
   const proxyInputRef = useRef<HTMLInputElement | null>(null);
+  const termRef = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const sendInputRef = useRef<(data: string) => void>(() => {});
   const reconnDelay = useRef(1000);
@@ -182,7 +184,37 @@ export function TerminalPage() {
 
   function commitInputBuffer(nextBuffer: string) {
     inputBufferRef.current = nextBuffer;
+    setProxyDraft(nextBuffer);
     writeSessionCache({ inputBuffer: nextBuffer });
+  }
+
+  function readDraftFromTerminal() {
+    const term = termRef.current;
+    if (!term) {
+      return inputBufferRef.current;
+    }
+
+    const buffer = term.buffer.active;
+    const cursorLineIndex = Math.max(0, buffer.baseY + buffer.cursorY);
+
+    for (let offset = 0; offset < 6; offset += 1) {
+      const line = buffer.getLine(Math.max(0, cursorLineIndex - offset));
+      if (!line) {
+        continue;
+      }
+
+      const visibleLine = offset === 0
+        ? line.translateToString(false, 0, buffer.cursorX)
+        : line.translateToString(true);
+
+      if (!visibleLine.trim()) {
+        continue;
+      }
+
+      return deriveDraftFromVisibleTerminalLine(visibleLine, inputBufferRef.current);
+    }
+
+    return inputBufferRef.current;
   }
 
   function openProxyInput() {
@@ -190,20 +222,21 @@ export function TerminalPage() {
       return;
     }
 
-    setProxyDraft(inputBufferRef.current);
+    commitInputBuffer(readDraftFromTerminal());
     setProxyInputOpen(true);
   }
 
-  function syncProxyInput(submit: boolean) {
-    const syncSequence = buildDraftSyncSequence(inputBufferRef.current, proxyDraft);
+  function syncProxyDraft(nextDraft: string) {
+    const syncSequence = buildDraftSyncSequence(inputBufferRef.current, nextDraft);
     if (syncSequence) {
       sendInputRef.current(syncSequence);
     } else {
-      commitInputBuffer(proxyDraft);
+      commitInputBuffer(nextDraft);
     }
-    if (submit) {
-      sendInputRef.current("\r");
-    }
+  }
+
+  function submitProxyDraft() {
+    sendInputRef.current("\r");
     setProxyInputOpen(false);
   }
 
@@ -223,6 +256,7 @@ export function TerminalPage() {
       allowProposedApi: true,
       disableStdin: isTouchDevice,
     });
+    termRef.current = term;
     const fit = new FitAddon();
     term.loadAddon(fit);
 
@@ -309,6 +343,10 @@ export function TerminalPage() {
           const msg = JSON.parse(e.data);
           if (msg.type === "terminal:data") {
             term.write(msg.data);
+            const visibleDraft = readDraftFromTerminal();
+            if (visibleDraft !== inputBufferRef.current) {
+              commitInputBuffer(visibleDraft);
+            }
             if (!gotFirstData) {
               gotFirstData = true;
               setTermReady(true);
@@ -417,6 +455,7 @@ export function TerminalPage() {
       dataDisposable.dispose();
       wsRef.current?.close();
       wsRef.current = null;
+      termRef.current = null;
       term.dispose();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -489,7 +528,7 @@ export function TerminalPage() {
             onClick={openProxyInput}
           />
           {isTouchDevice && proxyInputOpen && (
-            <div className="absolute inset-0 z-20" onClick={() => syncProxyInput(false)}>
+            <div className="absolute inset-0 z-20" onClick={() => setProxyInputOpen(false)}>
               <div
                 className="absolute inset-0 bg-black/30"
                 aria-hidden="true"
@@ -502,25 +541,35 @@ export function TerminalPage() {
                 <p className="mb-2 text-[0.6rem] font-medium uppercase tracking-[0.22em] text-terminal-muted">
                   Live Input Proxy
                 </p>
-                <input
-                  ref={proxyInputRef}
-                  value={proxyDraft}
-                  onChange={(e) => setProxyDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      syncProxyInput(true);
-                    }
-                  }}
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-3 py-3 font-mono text-sm text-terminal-text outline-none placeholder:text-terminal-muted/60"
-                  placeholder="Type here, tap outside to sync"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={proxyInputRef}
+                    value={proxyDraft}
+                    onChange={(e) => syncProxyDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        sendInputRef.current("\r");
+                      }
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-3 py-3 font-mono text-sm text-terminal-text outline-none placeholder:text-terminal-muted/60"
+                    placeholder="Type here to mirror the live terminal input"
+                  />
+                  <button
+                    type="button"
+                    onClick={submitProxyDraft}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-terminal-border bg-white/5 text-terminal-text transition hover:bg-white/10 active:bg-white/15"
+                    aria-label="Send command"
+                  >
+                    <SendHorizonal className="h-4 w-4" />
+                  </button>
+                </div>
                 <p className="mt-2 text-[0.7rem] text-terminal-muted">
-                  Tap outside to sync without running. Press return to sync and execute.
+                  Typing here mirrors the live terminal line. Tap send to run, or tap outside to close.
                 </p>
               </div>
             </div>

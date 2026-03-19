@@ -5,6 +5,7 @@ import {
   MOBILE_TERMINAL_KEYS,
   applyInputDataToBuffer,
   buildDraftSyncSequence,
+  deriveDraftFromVisibleTerminalLine,
 } from "./terminal-input.ts";
 
 test("mobile terminal key list removes ctrl+d", () => {
@@ -17,6 +18,20 @@ test("draft sync erases the stale line before writing the new text", () => {
 
 test("draft sync is empty when nothing changed", () => {
   assert.equal(buildDraftSyncSequence("same", "same"), "");
+});
+
+test("visible shell prompt line derives the editable draft", () => {
+  assert.equal(
+    deriveDraftFromVisibleTerminalLine("fakeou@mac agent-office % npm run dev", ""),
+    "npm run dev",
+  );
+});
+
+test("visible line prefers the known local buffer when it is already a suffix", () => {
+  assert.equal(
+    deriveDraftFromVisibleTerminalLine("fakeou@mac agent-office % npm run dev", "npm run dev"),
+    "npm run dev",
+  );
 });
 
 test("local input buffer tracks printable characters and clears on submit", () => {

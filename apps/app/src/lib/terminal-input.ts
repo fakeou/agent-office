@@ -23,6 +23,32 @@ export function buildDraftSyncSequence(currentBuffer: string, nextDraft: string)
   return "\x7f".repeat(Array.from(currentBuffer).length) + nextDraft;
 }
 
+const PROMPT_PATTERNS = [
+  /[$#%>]\s([^\r\n]*)$/,
+  /[❯›➜λ]\s([^\r\n]*)$/,
+];
+
+export function deriveDraftFromVisibleTerminalLine(visibleLine: string, currentBuffer: string) {
+  const normalized = visibleLine.replace(/\u00a0/g, " ").trimEnd();
+
+  if (!normalized) {
+    return currentBuffer;
+  }
+
+  if (currentBuffer && normalized.endsWith(currentBuffer)) {
+    return currentBuffer;
+  }
+
+  for (const pattern of PROMPT_PATTERNS) {
+    const match = normalized.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  return normalized.trimStart();
+}
+
 export function applyInputDataToBuffer(currentBuffer: string, data: string) {
   let nextBuffer = currentBuffer;
 
