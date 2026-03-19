@@ -26,36 +26,51 @@ import {
   shouldShowOfficeHeaderText,
 } from "@/lib/office-launch";
 import { getOfficeDiagnosticsRows } from "@/lib/office-diagnostics";
+import { getOfficeStageClassName } from "@/lib/office-stage";
 import { detectMobilePlatform } from "@/lib/live-recovery";
 
 function DiagRow({
   label,
-  ok,
+  state,
   hint,
 }: {
   label: string;
-  ok: boolean | null;
+  state: "ok" | "offline" | "checking" | "unknown";
   hint?: string;
 }) {
+  const isOk = state === "ok";
+  const isOffline = state === "offline";
+  const statusLabel =
+    state === "ok"
+      ? "Live"
+      : state === "offline"
+        ? "Offline"
+        : state === "checking"
+          ? "Checking..."
+          : "Unknown";
+
   return (
     <div className="grid gap-0.5">
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm text-foreground">{label}</span>
-        {ok === null ? (
-          <span className="text-[0.7rem] text-muted-foreground">checking…</span>
-        ) : ok ? (
+        {isOk ? (
           <span className="flex items-center gap-1.5 text-[0.7rem] font-medium text-green-600">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
-            OK
+            {statusLabel}
           </span>
-        ) : (
+        ) : isOffline ? (
           <span className="flex items-center gap-1.5 text-[0.7rem] font-medium text-red-500">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
-            Offline
+            {statusLabel}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-[0.7rem] font-medium text-muted-foreground">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+            {statusLabel}
           </span>
         )}
       </div>
-      {ok === false && hint && (
+      {hint && (
         <p className="text-[0.65rem] text-muted-foreground">{hint}</p>
       )}
     </div>
@@ -72,12 +87,12 @@ export function OfficePage() {
   const reconnectNow = useSessionsStore((s) => s.reconnectNow);
   const fetchRelayStatus = useSessionsStore((s) => s.fetchRelayStatus);
   const officeConnected = resolveOfficeConnected({ eventsConnected: connected, relayOnline });
-  const diagnosticsRows = getOfficeDiagnosticsRows({ connected, relayOnline });
   const platform = detectMobilePlatform();
   const showOfficeHeaderText = shouldShowOfficeHeaderText(platform);
 
   const [showLaunchDialog, setShowLaunchDialog] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [relayReachable, setRelayReachable] = useState<boolean | null>(null);
   const [launchTitle, setLaunchTitle] = useState("");
   const [launchCwd, setLaunchCwd] = useState("");
   const [launchProvider, setLaunchProvider] = useState<"claude" | "codex">("claude");
@@ -87,6 +102,7 @@ export function OfficePage() {
   const [homedir, setHomedir] = useState("");
   const [dirsError, setDirsError] = useState("");
   const [currentDir, setCurrentDir] = useState("");
+  const diagnosticsRows = getOfficeDiagnosticsRows({ connected, relayOnline, relayReachable });
 
   function onWorkerClick(sessionId: string) {
     navigate(`/terminal/${sessionId}`, {
@@ -94,13 +110,25 @@ export function OfficePage() {
     });
   }
 
+  async function checkRelayHealth() {
+    setRelayReachable(null);
+    try {
+      await api(`${RELAY_BASE}/api/relay/health`);
+      setRelayReachable(true);
+    } catch {
+      setRelayReachable(false);
+    }
+  }
+
   function openDiagnostics() {
     setShowDiagnostics(true);
+    void checkRelayHealth();
   }
 
   function retryConnections() {
     reconnectNow();
     void fetchRelayStatus().catch(() => {});
+    void checkRelayHealth();
   }
 
   async function fetchDirs(dirPath?: string) {
@@ -227,8 +255,8 @@ export function OfficePage() {
         </div>
       </header>
 
-      {/* Godot Frame — hidden while dialog is open so iframe doesn't cover the overlay */}
-      <section className={`flex-1 flex justify-center min-h-0 overflow-hidden${(showLaunchDialog || showDiagnostics) ? " invisible" : ""}`}>
+      {/* Keep the office visible behind dialogs, but disable interaction while overlays are open. */}
+      <section className={getOfficeStageClassName(showLaunchDialog || showDiagnostics)}>
         <div className="w-full md:max-w-[480px]">
           <GodotOfficeFrame
             connected={officeConnected}
@@ -371,7 +399,7 @@ export function OfficePage() {
                 {index > 0 ? <div className="mb-3 h-px bg-border" /> : null}
                 <DiagRow
                   label={row.label}
-                  ok={row.ok}
+                  state={row.state}
                   hint={row.hint}
                 />
               </div>
