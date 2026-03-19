@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, FolderOpen, ChevronUp } from "lucide-react";
-import { MenuButton } from "@/components/layout/NavSheet";
 import { GodotOfficeFrame } from "@/components/GodotOfficeFrame";
 import { useSessionsStore } from "@/store/sessions";
 import { useAuthStore } from "@/store/auth";
@@ -138,9 +137,8 @@ export function OfficePage() {
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
-          <MenuButton />
           {showOfficeHeaderText ? (
-            <div>
+            <div className="pl-12">
               <p className="text-[0.65rem] font-medium uppercase tracking-widest text-muted-foreground">
                 AgentOffice
               </p>

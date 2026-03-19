@@ -7,5 +7,5 @@ export function resolveOfficeConnected({
   eventsConnected,
   relayOnline,
 }: OfficeConnectionState) {
-  return eventsConnected && relayOnline;
+  return eventsConnected || relayOnline;
 }

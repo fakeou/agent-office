@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 
 import { resolveOfficeConnected } from "./office-connection.ts";
 
-test("office is offline when relay events stay connected but the hosted tunnel is offline", () => {
+test("office stays live when relay events are connected even if relay status lags behind", () => {
   assert.equal(
     resolveOfficeConnected({
       eventsConnected: true,
       relayOnline: false,
     }),
-    false,
+    true,
   );
 });
 
@@ -20,5 +20,15 @@ test("office is live only when both relay events and hosted tunnel are online", 
       relayOnline: true,
     }),
     true,
+  );
+});
+
+test("office is offline when neither relay events nor relay status are online", () => {
+  assert.equal(
+    resolveOfficeConnected({
+      eventsConnected: false,
+      relayOnline: false,
+    }),
+    false,
   );
 });

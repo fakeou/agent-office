@@ -1,14 +1,16 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { RootRedirect } from "./routes/RootRedirect";
 import { AuthPage } from "./routes/AuthPage";
 import { DashboardPage } from "./routes/DashboardPage";
 import { OfficePage } from "./routes/OfficePage";
 import { TerminalPage } from "./routes/TerminalPage";
 import { SessionsRuntime } from "./components/SessionsRuntime";
-import { NavProvider } from "./components/layout/NavSheet";
+import { MenuButton, NavProvider } from "./components/layout/NavSheet";
 import { SplashScreen } from "./components/splash/SplashScreen";
+import { Button } from "./components/ui/button";
 import { TooltipProvider } from "./components/ui/tooltip";
 import {
   getOfficeBackExitOutcome,
@@ -16,8 +18,51 @@ import {
 } from "./lib/android-back-exit";
 import { useAuthStore } from "./store/auth";
 import { hasValidJwt } from "./lib/jwt";
+import { getRouteNavMode } from "./lib/route-nav";
 
 const OFFICE_BACK_EXIT_WINDOW_MS = 2000;
+
+function FloatingRouteNav() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const mode = getRouteNavMode(location.pathname);
+  const hasBackgroundLocation = Boolean(
+    (location.state as { backgroundLocation?: unknown } | null)?.backgroundLocation
+  );
+  const isTerminalRoute = mode === "back";
+
+  if (mode === "none") {
+    return null;
+  }
+
+  return (
+    <div
+      className="pointer-events-none fixed left-0 top-0 z-40"
+      style={{
+        paddingTop: "calc(env(safe-area-inset-top) + 12px)",
+        paddingLeft: "calc(env(safe-area-inset-left) + 12px)",
+      }}
+    >
+      <div className="pointer-events-auto">
+        {mode === "menu" ? (
+          <div className="rounded-xl border border-border/70 bg-white/90 shadow-lg backdrop-blur">
+            <MenuButton />
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-xl border border-terminal-border bg-terminal-surface/90 text-terminal-text shadow-lg backdrop-blur hover:bg-terminal-surface"
+            onClick={() => (hasBackgroundLocation ? navigate(-1) : navigate("/office"))}
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function AndroidOfficeBackExit() {
   const location = useLocation();
@@ -134,6 +179,7 @@ function AppRoutes() {
   return (
     <>
       <SessionsRuntime />
+      <FloatingRouteNav />
       <AndroidOfficeBackExit />
 
       {/* Always mounted — display:none keeps the Godot iframe alive */}

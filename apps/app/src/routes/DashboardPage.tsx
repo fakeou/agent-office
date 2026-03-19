@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Copy, Check, Trash2 } from "lucide-react";
-import { MenuButton } from "@/components/layout/NavSheet";
 import { api } from "@/lib/api";
 import { RELAY_BASE } from "@/lib/config";
 import { useAuthStore } from "@/store/auth";
@@ -179,8 +178,7 @@ export function DashboardPage() {
 
       <div className="w-full max-w-[520px] px-6 pb-14 pt-8">
         {/* Topbar */}
-        <header className="mb-5 flex items-center gap-3">
-          <MenuButton />
+        <header className="mb-5 flex items-center gap-3 pl-12">
           <span className="text-sm font-semibold">Dashboard</span>
         </header>
 

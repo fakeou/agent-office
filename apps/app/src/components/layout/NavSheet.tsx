@@ -68,7 +68,14 @@ export function NavProvider({ children }: { children: ReactNode }) {
     <NavContext.Provider value={{ openNav: () => setOpen(true) }}>
       {children}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-64 p-0">
+        <SheetContent
+          side="left"
+          className="w-72 max-w-[82vw] p-0"
+          style={{
+            paddingTop: "calc(env(safe-area-inset-top) + 8px)",
+            paddingLeft: "env(safe-area-inset-left)",
+          }}
+        >
           <SheetHeader className="p-5 pb-4">
             <SheetTitle className="flex items-center gap-2.5">
               <img src="/favicon.png" alt="AgentOffice" className="h-8 w-8 rounded-lg object-contain" />
