@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2] - 2026-03-19
+
+### Changed
+- Hosted office sessions now recover from relay `tunnel_offline` drops with fast retry polling, so the remote Office badge returns to `Live` sooner after `ato start` reconnects
+
+### Fixed
+- Reduced the long offline window where the hosted app could stay disconnected even after the local CLI tunnel had already reconnected
+
 ## [0.1.1] - 2026-03-18
 
 ### Added
