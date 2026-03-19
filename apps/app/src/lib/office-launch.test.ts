@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   formatLaunchError,
-  getOfficeHeaderSafeAreaPaddingTop,
+  getOfficePageViewportHeight,
   getParentDirectory,
   shouldShowOfficeHeaderText,
 } from "./office-launch.ts";
@@ -27,9 +27,9 @@ test("directory browser can move up one level", () => {
   assert.equal(getParentDirectory(""), "");
 });
 
-test("office header keeps top safe-area spacing even when the floating menu is separate", () => {
+test("office page height accounts for the global safe-area padding once", () => {
   assert.equal(
-    getOfficeHeaderSafeAreaPaddingTop(),
-    "calc(env(safe-area-inset-top) + 16px)",
+    getOfficePageViewportHeight(),
+    "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))",
   );
 });

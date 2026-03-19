@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, FolderOpen, ChevronUp } from "lucide-react";
+import { Plus, FolderOpen, ChevronUp, RotateCcw } from "lucide-react";
 import { GodotOfficeFrame } from "@/components/GodotOfficeFrame";
 import { useSessionsStore } from "@/store/sessions";
 import { useAuthStore } from "@/store/auth";
@@ -20,11 +21,45 @@ import { api } from "@/lib/api";
 import { resolveOfficeConnected } from "@/lib/office-connection";
 import {
   formatLaunchError,
-  getOfficeHeaderSafeAreaPaddingTop,
+  getOfficePageViewportHeight,
   getParentDirectory,
   shouldShowOfficeHeaderText,
 } from "@/lib/office-launch";
 import { detectMobilePlatform } from "@/lib/live-recovery";
+
+function DiagRow({
+  label,
+  ok,
+  hint,
+}: {
+  label: string;
+  ok: boolean | null;
+  hint?: string;
+}) {
+  return (
+    <div className="grid gap-0.5">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-sm text-foreground">{label}</span>
+        {ok === null ? (
+          <span className="text-[0.7rem] text-muted-foreground">checking…</span>
+        ) : ok ? (
+          <span className="flex items-center gap-1.5 text-[0.7rem] font-medium text-green-600">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+            OK
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-[0.7rem] font-medium text-red-500">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+            Offline
+          </span>
+        )}
+      </div>
+      {ok === false && hint && (
+        <p className="text-[0.65rem] text-muted-foreground">{hint}</p>
+      )}
+    </div>
+  );
+}
 
 export function OfficePage() {
   const navigate = useNavigate();
@@ -33,11 +68,15 @@ export function OfficePage() {
   const fetchSessions = useSessionsStore((s) => s.fetchSessions);
   const connected = useSessionsStore((s) => s.connected);
   const relayOnline = useSessionsStore((s) => s.relayOnline);
+  const reconnectNow = useSessionsStore((s) => s.reconnectNow);
+  const fetchRelayStatus = useSessionsStore((s) => s.fetchRelayStatus);
   const officeConnected = resolveOfficeConnected({ eventsConnected: connected, relayOnline });
   const platform = detectMobilePlatform();
   const showOfficeHeaderText = shouldShowOfficeHeaderText(platform);
 
   const [showLaunchDialog, setShowLaunchDialog] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [relayReachable, setRelayReachable] = useState<boolean | null>(null);
   const [launchTitle, setLaunchTitle] = useState("");
   const [launchCwd, setLaunchCwd] = useState("");
   const [launchProvider, setLaunchProvider] = useState<"claude" | "codex">("claude");
@@ -49,10 +88,30 @@ export function OfficePage() {
   const [currentDir, setCurrentDir] = useState("");
 
   function onWorkerClick(sessionId: string) {
-    if (location.pathname !== "/office") return;
     navigate(`/terminal/${sessionId}`, {
       state: { backgroundLocation: location },
     });
+  }
+
+  async function checkRelayHealth() {
+    setRelayReachable(null);
+    try {
+      await api(`${RELAY_BASE}/api/relay/health`);
+      setRelayReachable(true);
+    } catch {
+      setRelayReachable(false);
+    }
+  }
+
+  function openDiagnostics() {
+    setShowDiagnostics(true);
+    void checkRelayHealth();
+  }
+
+  function retryConnections() {
+    reconnectNow();
+    void fetchRelayStatus().catch(() => {});
+    void checkRelayHealth();
   }
 
   async function fetchDirs(dirPath?: string) {
@@ -134,12 +193,12 @@ export function OfficePage() {
   const canGoUp = Boolean(parentDir) && parentDir !== (launchCwd || currentDir);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-white">
+    <div
+      className="flex flex-col overflow-hidden bg-white"
+      style={{ minHeight: getOfficePageViewportHeight() }}
+    >
       {/* Header */}
-      <header
-        className="relative z-10 flex items-center justify-between px-5 pb-4"
-        style={{ paddingTop: getOfficeHeaderSafeAreaPaddingTop() }}
-      >
+      <header className="relative z-10 flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
           {showOfficeHeaderText ? (
             <div className="pl-12">
@@ -151,21 +210,27 @@ export function OfficePage() {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={
-              officeConnected
-                ? "border-green-200 bg-green-50 text-green-700"
-                : "text-muted-foreground"
-            }
+          <button
+            onClick={openDiagnostics}
+            className="cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="View connection status"
           >
-            <span
-              className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${
-                officeConnected ? "bg-green-500" : "bg-muted-foreground"
-              }`}
-            />
-            {officeConnected ? "Live" : "Offline"}
-          </Badge>
+            <Badge
+              variant="outline"
+              className={
+                officeConnected
+                  ? "border-green-200 bg-green-50 text-green-700"
+                  : "border-red-200 bg-red-50 text-red-500"
+              }
+            >
+              <span
+                className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${
+                  officeConnected ? "bg-green-500" : "bg-red-400"
+                }`}
+              />
+              {officeConnected ? "Live" : "Offline"}
+            </Badge>
+          </button>
           <Button size="sm" variant="outline" onClick={openLaunchDialog}>
             <Plus className="mr-1 h-3.5 w-3.5" />
             Launch Worker
@@ -174,7 +239,7 @@ export function OfficePage() {
       </header>
 
       {/* Godot Frame — hidden while dialog is open so iframe doesn't cover the overlay */}
-      <section className={`flex-1 flex justify-center min-h-0 overflow-hidden${showLaunchDialog ? " invisible" : ""}`}>
+      <section className={`flex-1 flex justify-center min-h-0 overflow-hidden${(showLaunchDialog || showDiagnostics) ? " invisible" : ""}`}>
         <div className="w-full md:max-w-[480px]">
           <GodotOfficeFrame
             connected={officeConnected}
@@ -185,7 +250,6 @@ export function OfficePage() {
       </section>
 
       {/* Launch Dialog */}
-      <Dialog open={showLaunchDialog} onOpenChange={setShowLaunchDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Launch Worker</DialogTitle>

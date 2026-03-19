@@ -9,7 +9,7 @@ import { App } from "@capacitor/app";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Copy, Check, SendHorizonal } from "lucide-react";
+import { ArrowLeft, Copy, Check, SendHorizonal } from "lucide-react";
 import { CopyButton } from "@/components/shared/CopyButton";
 import { MobileKeybar } from "@/components/shared/MobileKeybar";
 import { TerminalLoading } from "@/components/shared/TerminalLoading";
@@ -434,7 +434,16 @@ export function TerminalPage() {
       }`}
     >
       <header className="flex items-center justify-between gap-3 border-b border-terminal-border bg-terminal-surface px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2 pl-12">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 shrink-0 rounded-xl border border-terminal-border bg-terminal-surface/90 text-terminal-text hover:bg-terminal-surface"
+            onClick={() => (hasBackgroundLocation ? navigate(-1) : navigate("/office"))}
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[0.6rem] font-medium uppercase tracking-wider text-white/20">
               Terminal
