@@ -250,6 +250,7 @@ export function OfficePage() {
       </section>
 
       {/* Launch Dialog */}
+      <Dialog open={showLaunchDialog} onOpenChange={setShowLaunchDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Launch Worker</DialogTitle>
@@ -365,6 +366,48 @@ export function OfficePage() {
             >
               {launchPending ? "Launching..." : "Launch"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diagnostics Dialog */}
+      <Dialog open={showDiagnostics} onOpenChange={setShowDiagnostics}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Connection Status</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <DiagRow
+              label="Frontend → Relay"
+              ok={relayReachable}
+              hint="Relay server is unreachable. Check your network or that the relay is running."
+            />
+            <div className="h-px bg-border" />
+            <DiagRow
+              label="Relay → CLI Tunnel"
+              ok={relayOnline}
+              hint="Run ato start on your computer to connect the tunnel."
+            />
+            <div className="h-px bg-border" />
+            <DiagRow
+              label="Events WebSocket"
+              ok={connected}
+              hint="WebSocket dropped. Tap Retry to reconnect."
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={retryConnections}
+              className="gap-1.5"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+            <DialogClose asChild>
+              <Button size="sm">Close</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
