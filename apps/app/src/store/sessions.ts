@@ -7,7 +7,7 @@ import {
   INITIAL_EVENTS_RECONNECT_STATE,
 } from "../lib/events-recovery";
 import { shouldReplaceSocketOnResume } from "../lib/live-recovery";
-import { getRelayWsQuery } from "../lib/relay-ws";
+import { clearRelayWsTokenCache, getRelayWsQuery } from "../lib/relay-ws";
 import { useAuthStore } from "./auth";
 
 /* ------------------------------------------------------------------ */
@@ -213,6 +213,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       firstMessageTimer = null;
     }
     connectPromise = null;
+    clearRelayWsTokenCache();
     set({ connected: false, relayOnline: false });
   },
 
