@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, FolderOpen } from "lucide-react";
+import { Plus, FolderOpen, ChevronUp } from "lucide-react";
 import { MenuButton } from "@/components/layout/NavSheet";
 import { GodotOfficeFrame } from "@/components/GodotOfficeFrame";
 import { useSessionsStore } from "@/store/sessions";
@@ -19,17 +19,23 @@ import { useAuthStore } from "@/store/auth";
 import { RELAY_BASE } from "@/lib/config";
 import { api } from "@/lib/api";
 import { resolveOfficeConnected } from "@/lib/office-connection";
-import { detectMobilePlatform, platformRecoveryMessage } from "@/lib/live-recovery";
+import {
+  formatLaunchError,
+  getParentDirectory,
+  shouldShowOfficeHeaderText,
+} from "@/lib/office-launch";
+import { detectMobilePlatform } from "@/lib/live-recovery";
 
 export function OfficePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessions = useSessionsStore((s) => s.sessions);
+  const fetchSessions = useSessionsStore((s) => s.fetchSessions);
   const connected = useSessionsStore((s) => s.connected);
   const relayOnline = useSessionsStore((s) => s.relayOnline);
   const officeConnected = resolveOfficeConnected({ eventsConnected: connected, relayOnline });
   const platform = detectMobilePlatform();
-  const showMobileGuidance = platform !== "web";
+  const showOfficeHeaderText = shouldShowOfficeHeaderText(platform);
 
   const [showLaunchDialog, setShowLaunchDialog] = useState(false);
   const [launchTitle, setLaunchTitle] = useState("");
@@ -39,6 +45,8 @@ export function OfficePage() {
   const [launchError, setLaunchError] = useState("");
   const [dirs, setDirs] = useState<string[]>([]);
   const [homedir, setHomedir] = useState("");
+  const [dirsError, setDirsError] = useState("");
+  const [currentDir, setCurrentDir] = useState("");
 
   function onWorkerClick(sessionId: string) {
     if (location.pathname !== "/office") return;
@@ -54,17 +62,27 @@ export function OfficePage() {
       const data = await api(`${RELAY_BASE}/tunnel/${userId}/api/dirs${query}`) as {
         home: string; path: string; dirs: string[];
       };
+      setDirsError("");
+      setCurrentDir(data.path || dirPath || data.home || "");
       if (!dirPath && data.home) {
         setHomedir(data.home);
         setLaunchCwd((prev) => prev || data.home);
       }
       setDirs(data.dirs ?? []);
-    } catch { /* offline */ }
+    } catch (err) {
+      setDirs([]);
+      setDirsError(formatLaunchError(err instanceof Error ? err.message : "request_failed"));
+    }
   }
 
   async function handleLaunch() {
     const title = launchTitle.trim();
     if (!title) return;
+
+    if (!officeConnected) {
+      setLaunchError("Your connected computer is offline. Reconnect `ato start` and try again.");
+      return;
+    }
 
     setLaunchPending(true);
     setLaunchError("");
@@ -87,11 +105,14 @@ export function OfficePage() {
           transport: "tmux",
         }),
       });
+      void fetchSessions().catch(() => {});
       setShowLaunchDialog(false);
       setLaunchTitle("");
       setLaunchCwd("");
+      setDirsError("");
+      setCurrentDir("");
     } catch (err) {
-      setLaunchError(err instanceof Error ? err.message : "Launch failed");
+      setLaunchError(formatLaunchError(err instanceof Error ? err.message : "Launch failed"));
     } finally {
       setLaunchPending(false);
     }
@@ -102,10 +123,15 @@ export function OfficePage() {
     setLaunchTitle("");
     setLaunchCwd("");
     setLaunchError("");
+    setDirsError("");
     setDirs([]);
+    setCurrentDir("");
     setShowLaunchDialog(true);
     void fetchDirs();
   }
+
+  const parentDir = getParentDirectory(launchCwd || currentDir);
+  const canGoUp = Boolean(parentDir) && parentDir !== (launchCwd || currentDir);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
@@ -113,12 +139,14 @@ export function OfficePage() {
       <header className="relative z-10 flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
           <MenuButton />
-          <div>
-            <p className="text-[0.65rem] font-medium uppercase tracking-widest text-muted-foreground">
-              AgentOffice
-            </p>
-            <h1 className="text-lg font-bold leading-tight">Office</h1>
-          </div>
+          {showOfficeHeaderText ? (
+            <div>
+              <p className="text-[0.65rem] font-medium uppercase tracking-widest text-muted-foreground">
+                AgentOffice
+              </p>
+              <h1 className="text-lg font-bold leading-tight">Office</h1>
+            </div>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <Badge
@@ -142,19 +170,6 @@ export function OfficePage() {
           </Button>
         </div>
       </header>
-
-      {showMobileGuidance && (
-        <section className="px-5 pb-3">
-          <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-sm text-amber-950">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-amber-700">
-              {platform === "ios" ? "iOS Guidance" : "Android Guidance"}
-            </p>
-            <p className="mt-1 leading-5">
-              {platformRecoveryMessage(platform)}
-            </p>
-          </div>
-        </section>
-      )}
 
       {/* Godot Frame — hidden while dialog is open so iframe doesn't cover the overlay */}
       <section className={`flex-1 flex justify-center min-h-0 overflow-hidden${showLaunchDialog ? " invisible" : ""}`}>
@@ -210,6 +225,28 @@ export function OfficePage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="launch-cwd">Working Directory</Label>
+              <p className="text-xs text-muted-foreground">
+                Browse folders from your connected computer, or type an absolute path manually.
+              </p>
+              {currentDir ? (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">{currentDir}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 shrink-0 px-2 text-xs"
+                    disabled={!canGoUp}
+                    onClick={() => {
+                      if (!canGoUp) return;
+                      setLaunchCwd(parentDir);
+                      void fetchDirs(parentDir);
+                    }}
+                  >
+                    <ChevronUp className="mr-1 h-3.5 w-3.5" />
+                    Up
+                  </Button>
+                </div>
+              ) : null}
               <div className="flex gap-1.5">
                 <Input
                   id="launch-cwd"
@@ -232,6 +269,11 @@ export function OfficePage() {
                   </Button>
                 )}
               </div>
+              {dirsError ? (
+                <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  {dirsError}
+                </div>
+              ) : null}
               {dirs.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {dirs.map((d) => (
