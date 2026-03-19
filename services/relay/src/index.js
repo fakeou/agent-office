@@ -465,6 +465,16 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
       }
       wss.handleUpgrade(request, socket, head, (ws) => {
         registerBrowserSocket(ws, { userId, sessionId: authSessionId });
+
+        // Keep browser TCP connection alive and reset client stale-detection clock.
+        const BROWSER_KEEPALIVE_INTERVAL_MS = 20_000;
+        const keepaliveTimer = setInterval(() => {
+          if (ws.readyState === 1 /* OPEN */) {
+            ws.send(JSON.stringify({ type: "relay:ping" }));
+          }
+        }, BROWSER_KEEPALIVE_INTERVAL_MS);
+        ws.on("close", () => clearInterval(keepaliveTimer));
+
         if (authExpiresAt) {
           const delay = authExpiresAt - Date.now();
           if (delay <= 0) {
