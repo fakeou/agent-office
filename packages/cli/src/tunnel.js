@@ -3,6 +3,42 @@ const { toSessionSummary } = require("./core");
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
+const LOCAL_PROXY_STRIP_HEADERS = new Set([
+  "accept-encoding",
+  "connection",
+  "content-length",
+  "cookie",
+  "origin",
+  "referer",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade"
+]);
+
+function shouldStripLocalProxyHeader(name) {
+  return (
+    LOCAL_PROXY_STRIP_HEADERS.has(name) ||
+    name.startsWith("proxy-") ||
+    name.startsWith("sec-") ||
+    name.startsWith("x-forwarded-")
+  );
+}
+
+function buildLocalRequestHeaders(headers, localServerUrl) {
+  const nextHeaders = {};
+
+  for (const [name, rawValue] of Object.entries(headers || {})) {
+    const key = String(name).toLowerCase();
+    if (shouldStripLocalProxyHeader(key) || rawValue == null) {
+      continue;
+    }
+    nextHeaders[key] = Array.isArray(rawValue) ? rawValue.join(", ") : String(rawValue);
+  }
+
+  nextHeaders.host = new URL(localServerUrl).host;
+  return nextHeaders;
+}
 
 function createTunnelClient({ key, relayUrl, localServerUrl }) {
   let ws = null;
@@ -116,7 +152,7 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
       const fetchUrl = `${localServerUrl}${msg.path}`;
       const fetchOptions = {
         method: msg.method || "GET",
-        headers: { ...msg.headers, host: new URL(localServerUrl).host }
+        headers: buildLocalRequestHeaders(msg.headers, localServerUrl)
       };
       if (msg.body && msg.method !== "GET" && msg.method !== "HEAD") {
         fetchOptions.body = msg.body;
@@ -220,5 +256,6 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
 }
 
 module.exports = {
+  buildLocalRequestHeaders,
   createTunnelClient
 };

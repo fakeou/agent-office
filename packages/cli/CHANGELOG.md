@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.4] - 2026-03-20
+
+### Fixed
+- Tunnel HTTP proxying now strips browser-only and hop-by-hop headers before forwarding requests into the local CLI server
+- Hosted Office requests such as worker listing, launch, and directory browsing no longer fail with transient `fetch failed` responses while the local tunnel is otherwise online
+
 ## [0.1.3] - 2026-03-19
 
 ### Fixed
