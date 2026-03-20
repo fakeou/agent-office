@@ -6,14 +6,6 @@ AgentOffice runs on your machine and turns every running AI agent into an employ
 
 ---
 
-## Preview
-
-![Office — four workers active](docs/images/office.jpg)
-
-![Terminal — remote session view](docs/images/terminal.jpg)
-
----
-
 ## What It Does
 
 - **Visualizes AI agents as employees** — each session appears as a live worker on the office floor with real-time status: `idle`, `working`, `approval`, or `attention`
@@ -113,13 +105,7 @@ ato start --key sk_your_api_key --relay https://your-relay.example.com
 
 ## Documentation
 
-- [`docs/CLI.md`](docs/CLI.md) — CLI runtime notes, hosted tunnel behavior, and platform sleep-prevention policy
-- [`docs/DEPLOY.md`](docs/DEPLOY.md) — Production deployment and remote operations
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — Development roadmap and feature checklist
-- [`docs/PROJECT_NOTES.md`](docs/PROJECT_NOTES.md) — Architecture, state model, and provider notes
-- [`docs/TEST_GUIDE.md`](docs/TEST_GUIDE.md) — UI testing guide
-- [`docs/PHASE3_RESEARCH.md`](docs/PHASE3_RESEARCH.md) — Phase 3 pixel-art world design research
-- [`docs/PHASE3_ASSETS.md`](docs/PHASE3_ASSETS.md) — Phase 3 asset generation prompts
+Project docs stay local and are intentionally not published to GitHub.
 
 ---
 
