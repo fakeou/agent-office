@@ -6,6 +6,11 @@ import {
   getEventsReconnectStateOnOpen,
   INITIAL_EVENTS_RECONNECT_STATE,
 } from "../lib/events-recovery";
+import {
+  EVENTS_FIRST_MESSAGE_TIMEOUT_MS,
+  getEventsSocketClosePatch,
+  getEventsSocketOpenPatch,
+} from "../lib/events-socket";
 import { shouldReplaceSocketOnResume } from "../lib/live-recovery";
 import { clearRelayWsTokenCache, getRelayWsQuery } from "../lib/relay-ws";
 import { useAuthStore } from "./auth";
@@ -53,7 +58,6 @@ let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let connectPromise: Promise<void> | null = null;
 let reconnectState = INITIAL_EVENTS_RECONNECT_STATE;
-const EVENTS_STALE_AFTER_MS = 1_500;
 let lastMessageAt: number | null = null;
 let firstMessageTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -132,7 +136,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
         ws = socket;
 
         socket.onopen = () => {
-          set({ connected: true, error: null });
+          set(getEventsSocketOpenPatch());
           void get().fetchRelayStatus().catch(() => {});
           reconnectState = getEventsReconnectStateOnOpen(reconnectState);
           if (firstMessageTimer) {
@@ -142,7 +146,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
             if (ws === socket && lastMessageAt == null) {
               socket.close();
             }
-          }, EVENTS_STALE_AFTER_MS);
+          }, EVENTS_FIRST_MESSAGE_TIMEOUT_MS);
         };
 
         socket.onmessage = (ev) => {
@@ -169,7 +173,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
 
         socket.onclose = (ev) => {
           ws = null;
-          set({ connected: false });
+          set(getEventsSocketClosePatch(ev));
           if (firstMessageTimer) {
             clearTimeout(firstMessageTimer);
             firstMessageTimer = null;
@@ -230,7 +234,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       !shouldReplaceSocketOnResume({
         readyState: ws.readyState,
         lastMessageAt,
-        staleAfterMs: EVENTS_STALE_AFTER_MS,
+        staleAfterMs: EVENTS_FIRST_MESSAGE_TIMEOUT_MS,
       })
     ) {
       return;
