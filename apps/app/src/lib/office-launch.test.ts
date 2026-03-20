@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   formatLaunchError,
+  getDirectoryBrowserPath,
+  getDirectoryOptionLabel,
   getOfficePageViewportHeight,
   getParentDirectory,
   shouldShowOfficeHeaderText,
@@ -25,6 +27,41 @@ test("directory browser can move up one level", () => {
   assert.equal(getParentDirectory("/"), "/");
   assert.equal(getParentDirectory("workspace"), "");
   assert.equal(getParentDirectory(""), "");
+});
+
+test("directory browser path prefers the live folder, then typed path, then home", () => {
+  assert.equal(
+    getDirectoryBrowserPath({
+      currentDir: "/Users/mac/Documents",
+      launchCwd: "/Users/mac/Desktop",
+      homedir: "/Users/mac",
+    }),
+    "/Users/mac/Documents",
+  );
+
+  assert.equal(
+    getDirectoryBrowserPath({
+      currentDir: "",
+      launchCwd: "/Users/mac/Desktop",
+      homedir: "/Users/mac",
+    }),
+    "/Users/mac/Desktop",
+  );
+
+  assert.equal(
+    getDirectoryBrowserPath({
+      currentDir: "",
+      launchCwd: "   ",
+      homedir: "/Users/mac",
+    }),
+    "/Users/mac",
+  );
+});
+
+test("directory browser options show readable folder labels", () => {
+  assert.equal(getDirectoryOptionLabel("/Users/mac/Documents/work"), "work");
+  assert.equal(getDirectoryOptionLabel("/Users/mac/Documents/work/"), "work");
+  assert.equal(getDirectoryOptionLabel("/"), "/");
 });
 
 test("office page height accounts for the global safe-area padding once", () => {

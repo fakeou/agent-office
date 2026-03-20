@@ -228,10 +228,15 @@ function createRelayServer({ port = 9000, host = "0.0.0.0", verifyKey, jwtSecret
   const app = express();
   app.set("trust proxy", true);
 
-  // CORS for local dev (Vite dev server on localhost:51xx)
+  // CORS for local web dev and native app shells (Capacitor localhost origins).
   app.use((req, res, next) => {
     const origin = req.headers.origin || "";
-    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    const allowLocalAppOrigin =
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+      origin === "capacitor://localhost" ||
+      origin === "https://localhost";
+
+    if (allowLocalAppOrigin) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Vary", "Origin");
       res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");

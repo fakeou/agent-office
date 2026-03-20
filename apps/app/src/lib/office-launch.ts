@@ -47,3 +47,26 @@ export function getParentDirectory(dirPath: string) {
 
   return trimmed.slice(0, index);
 }
+
+export function getDirectoryBrowserPath({
+  currentDir,
+  launchCwd,
+  homedir,
+}: {
+  currentDir: string;
+  launchCwd: string;
+  homedir: string;
+}) {
+  return currentDir || launchCwd.trim() || homedir;
+}
+
+export function getDirectoryOptionLabel(dirPath: string) {
+  const normalized = dirPath.trim();
+  if (!normalized || normalized === "/") {
+    return "/";
+  }
+
+  const trimmed = normalized.endsWith("/") ? normalized.slice(0, -1) : normalized;
+  const segments = trimmed.split("/");
+  return segments[segments.length - 1] || "/";
+}
