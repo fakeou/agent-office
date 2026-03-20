@@ -18,6 +18,7 @@ const {
   removeSessionRecord
 } = require("./session-registry");
 const { ensureNodePtySpawnHelper } = require("./ensure-node-pty");
+const { startSleepInhibitor } = require("./sleep-inhibitor");
 const {
   applyClaudeHookConfig,
   claudeSettingsPath,
@@ -45,6 +46,7 @@ module.exports = {
   persistSessionRecord,
   removeSessionRecord,
   ensureNodePtySpawnHelper,
+  startSleepInhibitor,
   applyClaudeHookConfig,
   claudeSettingsPath,
   commandExists,

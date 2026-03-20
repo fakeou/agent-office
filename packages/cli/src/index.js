@@ -19,6 +19,7 @@ const {
   createPtyManager,
   defaultTransportForProvider,
   ensureNodePtySpawnHelper,
+  startSleepInhibitor,
   listSessionRecords,
   removeSessionRecord,
   applyClaudeHookConfig,
@@ -170,6 +171,13 @@ async function main() {
 
     if (!commandExists("tmux")) {
       throw new Error("tmux is required for AgentOffice local sessions. Install it first, for example with `brew install tmux`.");
+    }
+
+    const sleepInhibitor = startSleepInhibitor({ commandExists });
+    if (sleepInhibitor.started) {
+      console.log("- sleep guard: caffeinate active");
+    } else if (process.platform === "darwin") {
+      console.log("- sleep guard: skipped (caffeinate unavailable)");
     }
 
     const store = createSessionStore();

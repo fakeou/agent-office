@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.6] - 2026-03-20
+
+### Added
+- macOS `ato start` now automatically keeps the machine awake with `caffeinate` while the local tunnel is running, so idle battery sleep no longer silently drops the hosted relay connection
+
 ## [0.1.5] - 2026-03-20
 
 ### Fixed
