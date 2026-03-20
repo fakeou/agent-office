@@ -1,5 +1,6 @@
 const { WebSocket } = require("ws");
 const { toSessionSummary } = require("./core");
+const { createTunnelLogger, describeWebSocketClose } = require("./runtime/tunnel-log");
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
@@ -40,7 +41,7 @@ function buildLocalRequestHeaders(headers, localServerUrl) {
   return nextHeaders;
 }
 
-function createTunnelClient({ key, relayUrl, localServerUrl }) {
+function createTunnelClient({ key, relayUrl, localServerUrl, logger = createTunnelLogger() }) {
   let ws = null;
   let reconnectDelay = RECONNECT_BASE_MS;
   let stopped = false;
@@ -68,7 +69,7 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
 
     ws.on("open", () => {
       reconnectDelay = RECONNECT_BASE_MS;
-      console.log("[tunnel] connected to relay, authenticating...");
+      logger.info("[tunnel] connected to relay, authenticating...");
       ws.send(JSON.stringify({ type: "auth", key }));
     });
 
@@ -91,12 +92,12 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
 
         if (msg.type === "auth:ok") {
           authenticated = true;
-          console.log(`[tunnel] authenticated with relay: ${relayUrl} (userId=${msg.userId})`);
+          logger.info(`[tunnel] authenticated with relay: ${relayUrl} (userId=${msg.userId})`);
           flushStatusSummary();
           return;
         }
         if (msg.type === "auth:error") {
-          console.error(`[tunnel] authentication failed: ${msg.error || "invalid key"}`);
+          logger.error(`[tunnel] authentication failed: ${msg.error || "invalid key"}`);
           stopped = true;
           ws.close();
           return;
@@ -108,20 +109,23 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
 
         await handleRelayMessage(msg);
       } catch (err) {
-        console.error(`[tunnel] message error: ${err.message}`);
+        logger.error(`[tunnel] message error: ${err.message}`);
       }
     });
 
-    ws.on("close", (code) => {
+    ws.on("close", (code, reasonBuffer) => {
+      const reason = Buffer.isBuffer(reasonBuffer) ? reasonBuffer.toString("utf8") : String(reasonBuffer || "");
+      const closeDetails = describeWebSocketClose({ code, reason });
       if (stopped) {
+        logger.info(`[tunnel] stopped with close ${closeDetails}`);
         return;
       }
       if (code === 4401) {
-        console.error("[tunnel] authentication rejected by relay. Not reconnecting.");
+        logger.error(`[tunnel] authentication rejected by relay (${closeDetails}). Not reconnecting.`);
         stopped = true;
         return;
       }
-      console.log(`[tunnel] disconnected (${code}). Reconnecting in ${reconnectDelay}ms...`);
+      logger.info(`[tunnel] disconnected (${closeDetails}). Reconnecting in ${reconnectDelay}ms...`);
       setTimeout(() => {
         reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
         connect();
@@ -129,7 +133,7 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
     });
 
     ws.on("error", (err) => {
-      console.error(`[tunnel] ws error: ${err.message}`);
+      logger.error(`[tunnel] ws error: ${err.message}`);
     });
   }
 
@@ -250,6 +254,7 @@ function createTunnelClient({ key, relayUrl, localServerUrl }) {
   connect();
 
   return {
+    logPath: logger.logPath,
     sendStatusSummary,
     stop
   };

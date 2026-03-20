@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.7] - 2026-03-20
+
+### Added
+- `ato start` now writes hosted tunnel lifecycle logs to `~/.agentoffice/logs/tunnel.log`, including relay reconnects, websocket errors, and close code/reason details for later debugging
+
+### Fixed
+- Relay upstream logs now record tunnel disconnect code/reason, so transient offline windows can be traced from server logs instead of only seeing the next reconnect
+
 ## [0.1.6] - 2026-03-20
 
 ### Added

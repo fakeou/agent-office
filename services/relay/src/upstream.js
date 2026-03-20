@@ -5,6 +5,20 @@ const HEARTBEAT_TIMEOUT_MS = 90000;
 
 const AUTH_TIMEOUT_MS = 10000;
 
+function describeUpstreamClose({ code, reason }) {
+  const parts = [];
+
+  if (typeof code === "number") {
+    parts.push(`code=${code}`);
+  }
+
+  if (reason) {
+    parts.push(`reason=${reason}`);
+  }
+
+  return parts.length > 0 ? parts.join(" ") : "no close details";
+}
+
 function createUpstreamManager({ verifyKey }) {
   const tunnels = new Map();
 
@@ -88,7 +102,9 @@ function createUpstreamManager({ verifyKey }) {
         }
       });
 
-      ws.on("close", () => {
+      ws.on("close", (code, reasonBuffer) => {
+        const reason = Buffer.isBuffer(reasonBuffer) ? reasonBuffer.toString("utf8") : String(reasonBuffer || "");
+        console.log(`[relay] upstream disconnected: userId=${userId} ${describeUpstreamClose({ code, reason })}`);
         if (tunnels.get(userId) === tunnel) {
           tunnels.delete(userId);
         }
@@ -267,5 +283,6 @@ function createUpstreamManager({ verifyKey }) {
 }
 
 module.exports = {
-  createUpstreamManager
+  createUpstreamManager,
+  describeUpstreamClose
 };

@@ -92,7 +92,7 @@ Each employee on the office floor is always in one of four states:
 
 | Command | Description |
 |---------|-------------|
-| `ato start` | Start and connect to the AgentOffice relay (uses `AGENTOFFICE_API_KEY` env var) |
+| `ato start` | Start and connect to the AgentOffice relay (uses `AGENTOFFICE_API_KEY` env var); on macOS it also keeps the machine awake while the tunnel is running |
 | `ato start --key sk_xxx` | Start with an explicit API key |
 | `ato start --key sk_xxx --relay URL` | Start with a custom relay server |
 | `ato claude` | Launch a Claude Code session |
@@ -113,6 +113,7 @@ ato start --key sk_your_api_key --relay https://your-relay.example.com
 
 ## Documentation
 
+- [`docs/CLI.md`](docs/CLI.md) — CLI runtime notes, hosted tunnel behavior, and platform sleep-prevention policy
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — Production deployment and remote operations
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — Development roadmap and feature checklist
 - [`docs/PROJECT_NOTES.md`](docs/PROJECT_NOTES.md) — Architecture, state model, and provider notes

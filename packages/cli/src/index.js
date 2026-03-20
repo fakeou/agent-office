@@ -202,6 +202,9 @@ async function main() {
       });
       console.log(`AgentOffice tunnel connecting to relay: ${hosted.relayUrl}`);
       console.log(`- hosted auth: key from ${hosted.keySource}, relay from ${hosted.relaySource}`);
+      if (tunnel.logPath) {
+        console.log(`- tunnel log: ${tunnel.logPath}`);
+      }
       tunnel.sendStatusSummary(store.listSessionSummaries());
 
       let statusDebounceTimer = null;

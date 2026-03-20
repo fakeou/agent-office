@@ -19,6 +19,7 @@ const {
 } = require("./session-registry");
 const { ensureNodePtySpawnHelper } = require("./ensure-node-pty");
 const { startSleepInhibitor } = require("./sleep-inhibitor");
+const { createTunnelLogger, TUNNEL_LOG_PATH, describeWebSocketClose } = require("./tunnel-log");
 const {
   applyClaudeHookConfig,
   claudeSettingsPath,
@@ -47,6 +48,9 @@ module.exports = {
   removeSessionRecord,
   ensureNodePtySpawnHelper,
   startSleepInhibitor,
+  createTunnelLogger,
+  TUNNEL_LOG_PATH,
+  describeWebSocketClose,
   applyClaudeHookConfig,
   claudeSettingsPath,
   commandExists,
