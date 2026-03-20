@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.5] - 2026-03-20
+
+### Fixed
+- Codex tmux screen classification now matches real status lines instead of any diagnostic text on screen, so reading code, changelogs, or grep output no longer falsely flips active workers into `attention`
+- Stale Codex `attention` overlays now fall back to the live lifecycle state once the terminal screen no longer shows a real attention condition
+
 ## [0.1.4] - 2026-03-20
 
 ### Fixed

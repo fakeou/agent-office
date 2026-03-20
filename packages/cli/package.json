@@ -1,6 +1,6 @@
 {
   "name": "agent-office-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Run and manage AI agent sessions locally, with optional relay to agentoffice.top",
   "license": "MIT",
   "engines": {

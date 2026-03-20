@@ -1,30 +1,40 @@
+const { displayZoneFor } = require("../state");
 const { GenericProvider } = require("./generic");
 const { findManagedCodexSessionFile, summarizeCodexSession } = require("./codex-transcript");
 
-const APPROVAL_PATTERNS = [
-  "approval requested:",
-  "approval requested by ",
-  "tool call needs your approval",
-  "requires approval by policy",
-  "requires approval:"
+const APPROVAL_LINE_PATTERNS = [
+  /^approval requested:/i,
+  /^approval requested by /i,
+  /^tool call needs your approval$/i,
+  /^requires approval by policy$/i,
+  /^requires approval:/i
 ];
 
-const IDLE_PATTERNS = [
-  "conversation interrupted - tell the model what to do differently",
-  "something went wrong? hit `/feedback` to",
-  "something went wrong? hit /feedback to"
+const IDLE_LINE_PATTERNS = [
+  /^conversation interrupted - tell the model what to do differently/i,
+  /^something went wrong\? hit `?\/feedback`? to/i
 ];
 
-const ATTENTION_PATTERNS = [
-  "stream disconnected before completion",
-  "error sending request for url",
-  "network error",
-  "connection timeout",
-  "timed out",
-  "failed to send request",
-  "failed to submit",
-  "panic"
+const STATUS_LINE_CONTINUATION = String.raw`(?:$|[\s:.,;(])`;
+
+const ATTENTION_LINE_PATTERNS = [
+  new RegExp(`^stream disconnected before completion${STATUS_LINE_CONTINUATION}`, "i"),
+  new RegExp(`^error sending request for url${STATUS_LINE_CONTINUATION}`, "i"),
+  new RegExp(`^network error${STATUS_LINE_CONTINUATION}`, "i"),
+  new RegExp(`^connection timeout${STATUS_LINE_CONTINUATION}`, "i"),
+  new RegExp(`^timed out${STATUS_LINE_CONTINUATION}`, "i"),
+  new RegExp(`^failed to send request${STATUS_LINE_CONTINUATION}`, "i"),
+  new RegExp(`^failed to submit${STATUS_LINE_CONTINUATION}`, "i"),
+  new RegExp(`^panic${STATUS_LINE_CONTINUATION}`, "i")
 ];
+
+function matchesAnyLine(text, patterns) {
+  return String(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .some((line) => patterns.some((pattern) => pattern.test(line)));
+}
 
 function activeOverlayPatch(session, nextLifecycleState) {
   if (!session || !["approval", "attention"].includes(session.displayState)) {
@@ -72,21 +82,41 @@ class CodexProvider extends GenericProvider {
   }
 
   classifyOutput(chunk) {
-    const text = String(chunk).toLowerCase();
-
-    if (IDLE_PATTERNS.some((pattern) => text.includes(pattern))) {
+    if (matchesAnyLine(chunk, IDLE_LINE_PATTERNS)) {
       return "idle";
     }
 
-    if (APPROVAL_PATTERNS.some((pattern) => text.includes(pattern))) {
+    if (matchesAnyLine(chunk, APPROVAL_LINE_PATTERNS)) {
       return "approval";
     }
 
-    if (ATTENTION_PATTERNS.some((pattern) => text.includes(pattern))) {
+    if (matchesAnyLine(chunk, ATTENTION_LINE_PATTERNS)) {
       return "attention";
     }
 
     return null;
+  }
+
+  getOverlayDisplayPatch(session, overlayState) {
+    if (!overlayState) {
+      if (session && session.displayState === "attention") {
+        const nextDisplayState = session.state || "working";
+        return {
+          displayState: nextDisplayState,
+          displayZone: displayZoneFor(nextDisplayState)
+        };
+      }
+      return null;
+    }
+
+    if (session && overlayState === session.displayState) {
+      return null;
+    }
+
+    return {
+      displayState: overlayState,
+      displayZone: displayZoneFor(overlayState)
+    };
   }
 
   reconcileSession(session, context = {}) {

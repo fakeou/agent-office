@@ -353,12 +353,21 @@ function createPtyManager({ store }) {
         const screen = await capturePane(runtime.tmuxSession);
         const latestSession = store.getSession(session.sessionId) || session;
         const overlayState = runtime.provider.classifyOutput(screen, latestSession);
+        const overlayPatch = typeof runtime.provider.getOverlayDisplayPatch === "function"
+          ? runtime.provider.getOverlayDisplayPatch(latestSession, overlayState)
+          : (
+              overlayState && overlayState !== latestSession.displayState
+                ? {
+                    displayState: overlayState,
+                    displayZone: displayZoneFor(overlayState)
+                  }
+                : null
+            );
 
-        if (overlayState && overlayState !== latestSession.displayState) {
+        if (overlayPatch) {
           store.setSessionState(session.sessionId, latestSession.state || "working", {
             status: "running",
-            displayState: overlayState,
-            displayZone: displayZoneFor(overlayState)
+            ...overlayPatch
           });
         }
 

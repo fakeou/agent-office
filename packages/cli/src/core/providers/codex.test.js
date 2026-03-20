@@ -91,6 +91,19 @@ test("classifyOutput treats stream disconnects as attention", () => {
   assert.equal(nextState, "attention");
 });
 
+test("classifyOutput ignores diagnostic text that only mentions attention patterns", () => {
+  const provider = new CodexProvider();
+  const nextState = provider.classifyOutput(
+    [
+      'rg -n -i "conversation interrupted|error sending request for url|network error|timed out|failed to send request|failed to submit|panic|fetch failed"',
+      'const nextState = provider.classifyOutput("network error: connection timed out", { meta: { codexSessionPath: "/tmp/mock-codex.jsonl" } });',
+      'The changelog says stream disconnected before completion should surface as attention.'
+    ].join("\n")
+  );
+
+  assert.equal(nextState, null);
+});
+
 test("classifyOutput does not treat plain explanatory approval text as a real approval prompt", () => {
   const provider = new CodexProvider();
   const nextState = provider.classifyOutput(
@@ -107,4 +120,21 @@ test("classifyOutput recognizes real Codex approval prompts", () => {
   );
 
   assert.equal(nextState, "approval");
+});
+
+test("getOverlayDisplayPatch clears stale attention overlays back to the lifecycle state", () => {
+  const provider = new CodexProvider();
+  const patch = provider.getOverlayDisplayPatch(
+    {
+      state: "working",
+      displayState: "attention",
+      displayZone: "attention-zone"
+    },
+    null
+  );
+
+  assert.deepEqual(patch, {
+    displayState: "working",
+    displayZone: "working-zone"
+  });
 });
