@@ -12,7 +12,8 @@ __pycache__/
 
 .agenttown/
 .worktrees/
-docs/
+docs/*.md
+docs/**/*.md
 
 dist/
 build/
