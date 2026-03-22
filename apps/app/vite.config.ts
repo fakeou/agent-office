@@ -40,8 +40,9 @@ function godotPlugin() {
         }
       });
     },
-    writeBundle() {
-      copyDirSync(GAME_DIR, path.resolve("dist/godot"));
+    writeBundle(options: { dir?: string }) {
+      const buildDir = options.dir ? path.resolve(options.dir) : path.resolve("dist");
+      copyDirSync(GAME_DIR, path.join(buildDir, "godot"));
     }
   };
 }
