@@ -53,12 +53,37 @@ wait_for_http() {
   return 1
 }
 
+swap_frontend_dist() {
+  local live_dir="$DEPLOY_DIR/apps/app/dist"
+  local next_dir="$DEPLOY_DIR/apps/app/dist-deploy"
+  local backup_dir="$DEPLOY_DIR/apps/app/dist-prev"
+
+  rm -rf "$backup_dir"
+
+  if [[ -d "$live_dir" ]]; then
+    mv "$live_dir" "$backup_dir"
+  fi
+
+  if mv "$next_dir" "$live_dir"; then
+    rm -rf "$backup_dir"
+    return 0
+  fi
+
+  rm -rf "$live_dir"
+  if [[ -d "$backup_dir" ]]; then
+    mv "$backup_dir" "$live_dir"
+  fi
+
+  echo "Failed to swap frontend dist directories" >&2
+  return 1
+}
+
 cd "$DEPLOY_DIR"
 
 git fetch --tags origin main
 git checkout -B main FETCH_HEAD
 git reset --hard "FETCH_HEAD"
-git clean -fdx
+git clean -fdx -e apps/app/dist -e apps/app/dist-prev -e apps/app/dist-deploy
 
 if ! command -v python3.11 >/dev/null 2>&1; then
   dnf install -y python3.11
@@ -69,7 +94,11 @@ export PYTHON="$npm_config_python"
 
 pnpm install --frozen-lockfile
 pnpm rebuild better-sqlite3 node-pty esbuild
-pnpm --filter @agent-office/app build
+rm -rf "$DEPLOY_DIR/apps/app/dist-deploy"
+pnpm --filter @agent-office/app exec tsc -b
+pnpm --filter @agent-office/app exec vite build --outDir dist-deploy --emptyOutDir
+wait_for_file "$DEPLOY_DIR/apps/app/dist-deploy/index.html" 20 1
+swap_frontend_dist
 wait_for_file "$DEPLOY_DIR/apps/app/dist/index.html" 20 1
 
 systemctl restart agentoffice-api.service agentoffice-relay.service
