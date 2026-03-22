@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.9] - 2026-03-22
+
+### Added
+- Added a dedicated npm package README with installation steps, command reference, hosted tunnel overview, and troubleshooting notes for `agent-office-cli`
+
+## [0.1.8] - 2026-03-20
+
+### Fixed
+- `ato start` now actively detects stalled hosted tunnel sockets and forces a reconnect instead of waiting indefinitely for the OS websocket stack to notice a dead relay link
+- Relay `4401 auth_timeout` closes no longer stop the tunnel permanently; only real auth failures such as `invalid_key` and `key_revoked` halt reconnects
+
 ## [0.1.7] - 2026-03-20
 
 ### Added

@@ -4,6 +4,9 @@ const { createTunnelLogger, describeWebSocketClose } = require("./runtime/tunnel
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
+const AUTH_RESPONSE_TIMEOUT_MS = 15000;
+const STALE_UPSTREAM_TIMEOUT_MS = 70000;
+const WATCHDOG_INTERVAL_MS = 5000;
 const LOCAL_PROXY_STRIP_HEADERS = new Set([
   "accept-encoding",
   "connection",
@@ -41,12 +44,49 @@ function buildLocalRequestHeaders(headers, localServerUrl) {
   return nextHeaders;
 }
 
-function createTunnelClient({ key, relayUrl, localServerUrl, logger = createTunnelLogger() }) {
+const TERMINAL_AUTH_REASONS = new Set([
+  "invalid_key",
+  "key_revoked"
+]);
+
+function isTerminalAuthFailure({ code, reason, error }) {
+  if (error) {
+    return TERMINAL_AUTH_REASONS.has(error);
+  }
+  if (code !== 4401) {
+    return false;
+  }
+  return TERMINAL_AUTH_REASONS.has(reason);
+}
+
+function closeSocket(socket) {
+  if (!socket) {
+    return;
+  }
+  if (typeof socket.terminate === "function") {
+    socket.terminate();
+    return;
+  }
+  socket.close();
+}
+
+function createTunnelClient({
+  key,
+  relayUrl,
+  localServerUrl,
+  logger = createTunnelLogger(),
+  reconnectBaseMs = RECONNECT_BASE_MS,
+  reconnectMaxMs = RECONNECT_MAX_MS,
+  authResponseTimeoutMs = AUTH_RESPONSE_TIMEOUT_MS,
+  staleUpstreamTimeoutMs = STALE_UPSTREAM_TIMEOUT_MS,
+  watchdogIntervalMs = WATCHDOG_INTERVAL_MS
+}) {
   let ws = null;
-  let reconnectDelay = RECONNECT_BASE_MS;
+  let reconnectDelay = reconnectBaseMs;
   let stopped = false;
   let authenticated = false;
   let pendingStatusSummary = [];
+  let reconnectTimer = null;
 
   function flushStatusSummary() {
     if (!authenticated || !ws || ws.readyState !== WebSocket.OPEN) {
@@ -58,6 +98,20 @@ function createTunnelClient({ key, relayUrl, localServerUrl, logger = createTunn
     }));
   }
 
+  function scheduleReconnect() {
+    if (stopped || reconnectTimer) {
+      return;
+    }
+
+    const delay = reconnectDelay;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      reconnectDelay = Math.min(reconnectDelay * 2, reconnectMaxMs);
+      connect();
+    }, delay);
+    reconnectTimer.unref?.();
+  }
+
   function connect() {
     if (stopped) {
       return;
@@ -65,16 +119,56 @@ function createTunnelClient({ key, relayUrl, localServerUrl, logger = createTunn
 
     authenticated = false;
     const url = `${relayUrl.replace(/^http/, "ws")}/upstream`;
-    ws = new WebSocket(url);
+    const socket = new WebSocket(url);
+    let socketAuthenticated = false;
+    let lastActivityAt = Date.now();
 
-    ws.on("open", () => {
-      reconnectDelay = RECONNECT_BASE_MS;
+    function markActivity() {
+      lastActivityAt = Date.now();
+    }
+
+    const watchdogTimer = setInterval(() => {
+      if (stopped || ws !== socket) {
+        return;
+      }
+
+      const idleForMs = Date.now() - lastActivityAt;
+      if (!socketAuthenticated) {
+        if (idleForMs < authResponseTimeoutMs) {
+          return;
+        }
+        logger.error(`[tunnel] auth response timeout after ${idleForMs}ms. Terminating socket and retrying.`);
+        closeSocket(socket);
+        return;
+      }
+
+      if (idleForMs < staleUpstreamTimeoutMs) {
+        return;
+      }
+
+      logger.error(`[tunnel] upstream stale for ${idleForMs}ms. Terminating socket and reconnecting.`);
+      closeSocket(socket);
+    }, watchdogIntervalMs);
+    watchdogTimer.unref?.();
+
+    ws = socket;
+
+    socket.on("open", () => {
+      markActivity();
       logger.info("[tunnel] connected to relay, authenticating...");
-      ws.send(JSON.stringify({ type: "auth", key }));
+      socket.send(JSON.stringify({ type: "auth", key }));
     });
 
-    ws.on("message", async (raw) => {
+    socket.on("ping", markActivity);
+    socket.on("pong", markActivity);
+
+    socket.on("message", async (raw) => {
       try {
+        if (ws !== socket) {
+          return;
+        }
+
+        markActivity();
         const str = String(raw);
 
         // Fast path: WS data forwarding uses "W:${connId}:${data}" prefix (no JSON parse)
@@ -91,15 +185,19 @@ function createTunnelClient({ key, relayUrl, localServerUrl, logger = createTunn
         const msg = JSON.parse(str);
 
         if (msg.type === "auth:ok") {
+          socketAuthenticated = true;
           authenticated = true;
+          reconnectDelay = reconnectBaseMs;
           logger.info(`[tunnel] authenticated with relay: ${relayUrl} (userId=${msg.userId})`);
           flushStatusSummary();
           return;
         }
         if (msg.type === "auth:error") {
           logger.error(`[tunnel] authentication failed: ${msg.error || "invalid key"}`);
-          stopped = true;
-          ws.close();
+          if (isTerminalAuthFailure({ error: msg.error })) {
+            stopped = true;
+          }
+          socket.close();
           return;
         }
 
@@ -113,26 +211,27 @@ function createTunnelClient({ key, relayUrl, localServerUrl, logger = createTunn
       }
     });
 
-    ws.on("close", (code, reasonBuffer) => {
+    socket.on("close", (code, reasonBuffer) => {
+      clearInterval(watchdogTimer);
+      if (ws === socket) {
+        ws = null;
+      }
       const reason = Buffer.isBuffer(reasonBuffer) ? reasonBuffer.toString("utf8") : String(reasonBuffer || "");
       const closeDetails = describeWebSocketClose({ code, reason });
       if (stopped) {
         logger.info(`[tunnel] stopped with close ${closeDetails}`);
         return;
       }
-      if (code === 4401) {
+      if (isTerminalAuthFailure({ code, reason })) {
         logger.error(`[tunnel] authentication rejected by relay (${closeDetails}). Not reconnecting.`);
         stopped = true;
         return;
       }
       logger.info(`[tunnel] disconnected (${closeDetails}). Reconnecting in ${reconnectDelay}ms...`);
-      setTimeout(() => {
-        reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
-        connect();
-      }, reconnectDelay);
+      scheduleReconnect();
     });
 
-    ws.on("error", (err) => {
+    socket.on("error", (err) => {
       logger.error(`[tunnel] ws error: ${err.message}`);
     });
   }
@@ -242,6 +341,10 @@ function createTunnelClient({ key, relayUrl, localServerUrl, logger = createTunn
 
   function stop() {
     stopped = true;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
     for (const localWs of localWsConnections.values()) {
       localWs.close();
     }
