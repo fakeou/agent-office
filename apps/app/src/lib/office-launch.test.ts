@@ -5,6 +5,7 @@ import {
   formatLaunchError,
   getDirectoryBrowseQuery,
   getDirectoryBrowserPath,
+  getDirectoryListClassName,
   getDirectorySuggestionQuery,
   getMatchingDirectoryOptions,
   getDirectoryOptionLabel,
@@ -151,6 +152,12 @@ test("directory matches prioritize prefix matches and hide unrelated folders", (
       "/Users/mac/Downloads",
     ],
   );
+});
+
+test("directory options list uses native overflow scrolling inside the popover", () => {
+  assert.match(getDirectoryListClassName(), /overflow-y-auto/);
+  assert.match(getDirectoryListClassName(), /max-h-56/);
+  assert.match(getDirectoryListClassName(), /overscroll-contain/);
 });
 
 test("office page height accounts for the global safe-area padding once", () => {

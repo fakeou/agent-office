@@ -202,3 +202,7 @@ export function getMatchingDirectoryOptions(dirPaths: string[], filterText: stri
 
   return [...prefixMatches, ...containsMatches];
 }
+
+export function getDirectoryListClassName() {
+  return "max-h-56 overflow-y-auto overscroll-contain";
+}

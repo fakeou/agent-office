@@ -9,7 +9,6 @@ import {
   Popover,
   PopoverContent,
 } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogClose,
@@ -28,6 +27,7 @@ import { resolveOfficeConnected } from "@/lib/office-connection";
 import {
   getDirectoryBrowseQuery,
   getDirectoryBrowserPath,
+  getDirectoryListClassName,
   getDirectorySuggestionQuery,
   getMatchingDirectoryOptions,
   getDirectoryOptionLabel,
@@ -492,7 +492,7 @@ export function OfficePage() {
                         {dirsError}
                       </div>
                     ) : matchingDirs.length > 0 ? (
-                      <ScrollArea className="max-h-56">
+                      <div className={getDirectoryListClassName()}>
                         <div className="grid gap-1 p-2">
                           {matchingDirs.map((dirPath) => (
                             <button
@@ -510,7 +510,7 @@ export function OfficePage() {
                             </button>
                           ))}
                         </div>
-                      </ScrollArea>
+                      </div>
                     ) : (
                       <div className="px-3 py-4 text-xs text-muted-foreground">
                         No matching folders found in this directory.
