@@ -60,6 +60,30 @@ export function getDirectoryBrowserPath({
   return currentDir || launchCwd.trim() || homedir;
 }
 
+export function shouldOpenDirectoryBrowserOnLaunchDialogOpen() {
+  return false;
+}
+
+export function getDirectoryBrowserFetchTarget({
+  launchCwd,
+  currentDir,
+}: {
+  launchCwd: string;
+  currentDir: string;
+}) {
+  const requestedPath = launchCwd.trim();
+
+  if (requestedPath && requestedPath !== currentDir) {
+    return requestedPath;
+  }
+
+  if (!currentDir) {
+    return "";
+  }
+
+  return undefined;
+}
+
 export function getDirectoryOptionLabel(dirPath: string) {
   const normalized = dirPath.trim();
   if (!normalized || normalized === "/") {

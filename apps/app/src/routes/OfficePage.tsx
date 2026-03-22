@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
@@ -22,10 +27,12 @@ import { api } from "@/lib/api";
 import { resolveOfficeConnected } from "@/lib/office-connection";
 import {
   getDirectoryBrowserPath,
+  getDirectoryBrowserFetchTarget,
   getDirectoryOptionLabel,
   formatLaunchError,
   getOfficePageViewportHeight,
   getParentDirectory,
+  shouldOpenDirectoryBrowserOnLaunchDialogOpen,
   shouldShowOfficeHeaderText,
 } from "@/lib/office-launch";
 import { getOfficeDiagnosticsRows } from "@/lib/office-diagnostics";
@@ -206,7 +213,7 @@ export function OfficePage() {
     setDirsError("");
     setDirs([]);
     setCurrentDir("");
-    setShowDirBrowser(true);
+    setShowDirBrowser(shouldOpenDirectoryBrowserOnLaunchDialogOpen());
     setShowLaunchDialog(true);
     void fetchDirs();
   }
@@ -217,23 +224,24 @@ export function OfficePage() {
     void fetchDirs(dirPath);
   }
 
-  function toggleDirectoryBrowser() {
-    const nextOpen = !showDirBrowser;
+  function handleDirectoryBrowserOpenChange(nextOpen: boolean) {
     setShowDirBrowser(nextOpen);
 
     if (!nextOpen) {
       return;
     }
 
-    const requestedPath = launchCwd.trim();
-    if (requestedPath && requestedPath !== currentDir) {
-      void fetchDirs(requestedPath);
+    const fetchTarget = getDirectoryBrowserFetchTarget({ launchCwd, currentDir });
+    if (fetchTarget === undefined) {
       return;
     }
 
-    if (!currentDir) {
-      void fetchDirs(requestedPath || undefined);
+    if (fetchTarget) {
+      void fetchDirs(fetchTarget);
+      return;
     }
+
+    void fetchDirs();
   }
 
   const browsePath = getDirectoryBrowserPath({ currentDir, launchCwd, homedir });
@@ -360,84 +368,92 @@ export function OfficePage() {
                       return;
                     }
 
+                    setShowDirBrowser(true);
                     browseDirectory(nextPath);
                   }}
                 />
-                <Button
-                  variant="outline"
-                  className="shrink-0"
-                  onClick={toggleDirectoryBrowser}
-                >
-                  <FolderOpen className="mr-1 h-4 w-4" />
-                  {showDirBrowser ? "Hide" : "Browse"}
-                </Button>
-              </div>
-              {showDirBrowser ? (
-                <div className="overflow-hidden rounded-md border border-border/70 bg-muted/15">
-                  <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">
-                    <span className="min-w-0 flex-1 truncate">
-                      {browsePath || homedir || "Select a folder"}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {homedir ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          disabled={browsePath === homedir}
-                          onClick={() => browseDirectory(homedir)}
-                        >
-                          Home
-                        </Button>
-                      ) : null}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        disabled={!canGoUp}
-                        onClick={() => {
-                          if (!canGoUp) {
-                            return;
-                          }
+                <Popover open={showDirBrowser} onOpenChange={handleDirectoryBrowserOpenChange}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="shrink-0"
+                      aria-expanded={showDirBrowser}
+                    >
+                      <FolderOpen className="mr-1 h-4 w-4" />
+                      Browse
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    className="w-[min(22rem,calc(100vw-3rem))] overflow-hidden p-0 sm:w-[22rem]"
+                  >
+                    <div className="overflow-hidden rounded-md border-0 bg-muted/15">
+                      <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">
+                        <span className="min-w-0 flex-1 truncate">
+                          {browsePath || homedir || "Select a folder"}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {homedir ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              disabled={browsePath === homedir}
+                              onClick={() => browseDirectory(homedir)}
+                            >
+                              Home
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={!canGoUp}
+                            onClick={() => {
+                              if (!canGoUp) {
+                                return;
+                              }
 
-                          browseDirectory(parentDir);
-                        }}
-                      >
-                        <ChevronUp className="mr-1 h-3.5 w-3.5" />
-                        Up
-                      </Button>
-                    </div>
-                  </div>
-                  {dirsError ? (
-                    <div className="border-t border-destructive/10 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                      {dirsError}
-                    </div>
-                  ) : dirs.length > 0 ? (
-                    <ScrollArea className="max-h-56">
-                      <div className="grid gap-1 p-2">
-                        {dirs.map((dirPath) => (
-                          <button
-                            key={dirPath}
-                            onClick={() => browseDirectory(dirPath)}
-                            className="flex items-center justify-between rounded-md border border-transparent px-2.5 py-2 text-left text-sm transition-colors hover:border-border hover:bg-background"
+                              browseDirectory(parentDir);
+                            }}
                           >
-                            <span className="truncate font-medium text-foreground">
-                              {getDirectoryOptionLabel(dirPath)}
-                            </span>
-                            <span className="ml-3 shrink-0 text-[0.7rem] text-muted-foreground">
-                              Open
-                            </span>
-                          </button>
-                        ))}
+                            <ChevronUp className="mr-1 h-3.5 w-3.5" />
+                            Up
+                          </Button>
+                        </div>
                       </div>
-                    </ScrollArea>
-                  ) : (
-                    <div className="px-3 py-4 text-xs text-muted-foreground">
-                      No subfolders found in this directory.
+                      {dirsError ? (
+                        <div className="border-t border-destructive/10 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                          {dirsError}
+                        </div>
+                      ) : dirs.length > 0 ? (
+                        <ScrollArea className="max-h-56">
+                          <div className="grid gap-1 p-2">
+                            {dirs.map((dirPath) => (
+                              <button
+                                key={dirPath}
+                                onClick={() => browseDirectory(dirPath)}
+                                className="flex items-center justify-between rounded-md border border-transparent px-2.5 py-2 text-left text-sm transition-colors hover:border-border hover:bg-background"
+                              >
+                                <span className="truncate font-medium text-foreground">
+                                  {getDirectoryOptionLabel(dirPath)}
+                                </span>
+                                <span className="ml-3 shrink-0 text-[0.7rem] text-muted-foreground">
+                                  Open
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      ) : (
+                        <div className="px-3 py-4 text-xs text-muted-foreground">
+                          No subfolders found in this directory.
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ) : null}
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </div>
           <DialogFooter>
