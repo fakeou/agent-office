@@ -60,6 +60,15 @@ export function getDirectoryBrowserPath({
   return currentDir || launchCwd.trim() || homedir;
 }
 
+function normalizeDirectoryPath(dirPath: string) {
+  const normalized = dirPath.trim();
+  if (!normalized || normalized === "/") {
+    return normalized;
+  }
+
+  return normalized.endsWith("/") ? normalized.slice(0, -1) : normalized;
+}
+
 export function shouldOpenDirectoryBrowserOnLaunchDialogOpen() {
   return false;
 }
@@ -84,6 +93,81 @@ export function getDirectoryBrowserFetchTarget({
   return undefined;
 }
 
+export function getDirectorySuggestionQuery({
+  launchCwd,
+  currentDir,
+  homedir,
+}: {
+  launchCwd: string;
+  currentDir: string;
+  homedir: string;
+}) {
+  const requestedPath = normalizeDirectoryPath(launchCwd);
+
+  if (!requestedPath) {
+    return {
+      fetchPath: currentDir || homedir,
+      filterText: "",
+    };
+  }
+
+  if (launchCwd.trim().endsWith("/")) {
+    return {
+      fetchPath: requestedPath,
+      filterText: "",
+    };
+  }
+
+  const parentDir = getParentDirectory(requestedPath);
+  if (!parentDir) {
+    return {
+      fetchPath: currentDir || homedir,
+      filterText: requestedPath,
+    };
+  }
+
+  return {
+    fetchPath: parentDir,
+    filterText: getDirectoryOptionLabel(requestedPath),
+  };
+}
+
+export function getDirectoryBrowseQuery({
+  launchCwd,
+  currentDir,
+  homedir,
+}: {
+  launchCwd: string;
+  currentDir: string;
+  homedir: string;
+}) {
+  const requestedPath = normalizeDirectoryPath(launchCwd);
+
+  if (!requestedPath) {
+    return {
+      fetchPath: currentDir || homedir,
+      fallbackPath: "",
+      filterText: "",
+    };
+  }
+
+  if (launchCwd.trim().endsWith("/")) {
+    return {
+      fetchPath: requestedPath,
+      fallbackPath: "",
+      filterText: "",
+    };
+  }
+
+  const parentDir = getParentDirectory(requestedPath);
+
+  return {
+    fetchPath: requestedPath,
+    fallbackPath: parentDir,
+    filterText: "",
+  };
+}
+
 export function getDirectoryOptionLabel(dirPath: string) {
   const normalized = dirPath.trim();
   if (!normalized || normalized === "/") {
@@ -93,4 +177,28 @@ export function getDirectoryOptionLabel(dirPath: string) {
   const trimmed = normalized.endsWith("/") ? normalized.slice(0, -1) : normalized;
   const segments = trimmed.split("/");
   return segments[segments.length - 1] || "/";
+}
+
+export function getMatchingDirectoryOptions(dirPaths: string[], filterText: string) {
+  const query = filterText.trim().toLowerCase();
+  if (!query) {
+    return dirPaths;
+  }
+
+  const prefixMatches: string[] = [];
+  const containsMatches: string[] = [];
+
+  for (const dirPath of dirPaths) {
+    const label = getDirectoryOptionLabel(dirPath).toLowerCase();
+    if (label.startsWith(query)) {
+      prefixMatches.push(dirPath);
+      continue;
+    }
+
+    if (label.includes(query)) {
+      containsMatches.push(dirPath);
+    }
+  }
+
+  return [...prefixMatches, ...containsMatches];
 }

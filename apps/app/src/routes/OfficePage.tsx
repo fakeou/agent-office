@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  PopoverAnchor,
   Popover,
   PopoverContent,
-  PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, FolderOpen, ChevronUp, RotateCcw } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import { GodotOfficeFrame } from "@/components/GodotOfficeFrame";
 import { useSessionsStore } from "@/store/sessions";
 import { useAuthStore } from "@/store/auth";
@@ -26,8 +26,10 @@ import { RELAY_BASE } from "@/lib/config";
 import { api } from "@/lib/api";
 import { resolveOfficeConnected } from "@/lib/office-connection";
 import {
+  getDirectoryBrowseQuery,
   getDirectoryBrowserPath,
-  getDirectoryBrowserFetchTarget,
+  getDirectorySuggestionQuery,
+  getMatchingDirectoryOptions,
   getDirectoryOptionLabel,
   formatLaunchError,
   getOfficePageViewportHeight,
@@ -103,6 +105,7 @@ export function OfficePage() {
   const [showLaunchDialog, setShowLaunchDialog] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showDirBrowser, setShowDirBrowser] = useState(false);
+  const [dirBrowserMode, setDirBrowserMode] = useState<"suggest" | "browse">("browse");
   const [relayReachable, setRelayReachable] = useState<boolean | null>(null);
   const [launchTitle, setLaunchTitle] = useState("");
   const [launchCwd, setLaunchCwd] = useState("");
@@ -114,6 +117,23 @@ export function OfficePage() {
   const [dirsError, setDirsError] = useState("");
   const [currentDir, setCurrentDir] = useState("");
   const diagnosticsRows = getOfficeDiagnosticsRows({ connected, relayOnline, relayReachable });
+  const matchingDirs = useMemo(() => {
+    if (!showDirBrowser) {
+      return dirs;
+    }
+
+    if (dirBrowserMode === "browse") {
+      return dirs;
+    }
+
+    const query = getDirectorySuggestionQuery({
+      launchCwd,
+      currentDir,
+      homedir,
+    });
+
+    return getMatchingDirectoryOptions(dirs, query.filterText);
+  }, [currentDir, dirBrowserMode, dirs, homedir, launchCwd, showDirBrowser]);
 
   function onWorkerClick(sessionId: string) {
     navigate(`/terminal/${sessionId}`, {
@@ -156,9 +176,11 @@ export function OfficePage() {
         setLaunchCwd((prev) => prev || data.home);
       }
       setDirs(data.dirs ?? []);
+      return true;
     } catch (err) {
       setDirs([]);
       setDirsError(formatLaunchError(err instanceof Error ? err.message : "request_failed"));
+      return false;
     }
   }
 
@@ -213,15 +235,17 @@ export function OfficePage() {
     setDirsError("");
     setDirs([]);
     setCurrentDir("");
+    setDirBrowserMode("browse");
     setShowDirBrowser(shouldOpenDirectoryBrowserOnLaunchDialogOpen());
     setShowLaunchDialog(true);
     void fetchDirs();
   }
 
-  function browseDirectory(dirPath: string) {
+  async function browseDirectory(dirPath: string) {
     setLaunchCwd(dirPath);
+    setDirBrowserMode("browse");
     setShowDirBrowser(true);
-    void fetchDirs(dirPath);
+    await fetchDirs(dirPath);
   }
 
   function handleDirectoryBrowserOpenChange(nextOpen: boolean) {
@@ -230,18 +254,48 @@ export function OfficePage() {
     if (!nextOpen) {
       return;
     }
+  }
 
-    const fetchTarget = getDirectoryBrowserFetchTarget({ launchCwd, currentDir });
-    if (fetchTarget === undefined) {
+  async function openDirectorySuggestions(nextValue: string) {
+    setDirBrowserMode("suggest");
+    const query = getDirectorySuggestionQuery({
+      launchCwd: nextValue,
+      currentDir,
+      homedir,
+    });
+
+    setShowDirBrowser(true);
+
+    if (!query.fetchPath || query.fetchPath === currentDir) {
       return;
     }
 
-    if (fetchTarget) {
-      void fetchDirs(fetchTarget);
+    await fetchDirs(query.fetchPath);
+  }
+
+  async function toggleDirectoryBrowser() {
+    if (showDirBrowser) {
+      setShowDirBrowser(false);
       return;
     }
 
-    void fetchDirs();
+    setDirBrowserMode("browse");
+    const query = getDirectoryBrowseQuery({
+      launchCwd,
+      currentDir,
+      homedir,
+    });
+
+    setShowDirBrowser(true);
+
+    if (!query.fetchPath || query.fetchPath === currentDir) {
+      return;
+    }
+
+    const loaded = await fetchDirs(query.fetchPath);
+    if (!loaded && query.fallbackPath && query.fallbackPath !== query.fetchPath) {
+      await fetchDirs(query.fallbackPath);
+    }
   }
 
   const browsePath = getDirectoryBrowserPath({ currentDir, launchCwd, homedir });
@@ -351,109 +405,120 @@ export function OfficePage() {
               <p className="text-xs text-muted-foreground">
                 Enter folders level by level from your connected computer, or type an absolute path manually.
               </p>
-              <div className="flex gap-1.5">
-                <Input
-                  id="launch-cwd"
-                  placeholder={homedir || "/Users/you/project (optional)"}
-                  value={launchCwd}
-                  onChange={(e) => setLaunchCwd(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") {
-                      return;
-                    }
+              <Popover open={showDirBrowser} onOpenChange={handleDirectoryBrowserOpenChange}>
+                <PopoverAnchor asChild>
+                  <div className="relative">
+                    <Input
+                      id="launch-cwd"
+                      className="pr-11"
+                      placeholder={homedir || "/Users/you/project (optional)"}
+                      value={launchCwd}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setLaunchCwd(nextValue);
+                        void openDirectorySuggestions(nextValue);
+                      }}
+                      onFocus={() => {
+                        if (!launchCwd.trim()) {
+                          return;
+                        }
 
-                    e.preventDefault();
-                    const nextPath = launchCwd.trim();
-                    if (!nextPath) {
-                      return;
-                    }
+                        void openDirectorySuggestions(launchCwd);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") {
+                          return;
+                        }
 
-                    setShowDirBrowser(true);
-                    browseDirectory(nextPath);
-                  }}
-                />
-                <Popover open={showDirBrowser} onOpenChange={handleDirectoryBrowserOpenChange}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="shrink-0"
+                        e.preventDefault();
+                        void handleLaunch();
+                      }}
+                    />
+                    <button
+                      type="button"
+                      aria-label={showDirBrowser ? "Hide folders" : "Show folders"}
                       aria-expanded={showDirBrowser}
+                      onClick={() => void toggleDirectoryBrowser()}
+                      className="absolute inset-y-1 right-1 inline-flex w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
-                      <FolderOpen className="mr-1 h-4 w-4" />
-                      Browse
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="end"
-                    className="w-[min(22rem,calc(100vw-3rem))] overflow-hidden p-0 sm:w-[22rem]"
-                  >
-                    <div className="overflow-hidden rounded-md border-0 bg-muted/15">
-                      <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">
-                        <span className="min-w-0 flex-1 truncate">
-                          {browsePath || homedir || "Select a folder"}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {homedir ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              disabled={browsePath === homedir}
-                              onClick={() => browseDirectory(homedir)}
-                            >
-                              Home
-                            </Button>
-                          ) : null}
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${showDirBrowser ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  </div>
+                </PopoverAnchor>
+                <PopoverContent
+                  align="start"
+                  sideOffset={6}
+                  className="w-[var(--radix-popover-anchor-width)] overflow-hidden p-0"
+                >
+                  <div className="overflow-hidden rounded-md border-0 bg-muted/15">
+                    <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">
+                      <span className="min-w-0 flex-1 truncate">
+                        {browsePath || homedir || "Select a folder"}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {homedir ? (
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2 text-xs"
-                            disabled={!canGoUp}
-                            onClick={() => {
-                              if (!canGoUp) {
-                                return;
-                              }
-
-                              browseDirectory(parentDir);
-                            }}
+                            disabled={browsePath === homedir}
+                            onClick={() => void browseDirectory(homedir)}
                           >
-                            <ChevronUp className="mr-1 h-3.5 w-3.5" />
-                            Up
+                            Home
                           </Button>
-                        </div>
+                        ) : null}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          disabled={!canGoUp}
+                          onClick={() => {
+                            if (!canGoUp) {
+                              return;
+                            }
+
+                            void browseDirectory(parentDir);
+                          }}
+                        >
+                          <ChevronUp className="mr-1 h-3.5 w-3.5" />
+                          Up
+                        </Button>
                       </div>
-                      {dirsError ? (
-                        <div className="border-t border-destructive/10 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                          {dirsError}
-                        </div>
-                      ) : dirs.length > 0 ? (
-                        <ScrollArea className="max-h-56">
-                          <div className="grid gap-1 p-2">
-                            {dirs.map((dirPath) => (
-                              <button
-                                key={dirPath}
-                                onClick={() => browseDirectory(dirPath)}
-                                className="flex items-center justify-between rounded-md border border-transparent px-2.5 py-2 text-left text-sm transition-colors hover:border-border hover:bg-background"
-                              >
-                                <span className="truncate font-medium text-foreground">
-                                  {getDirectoryOptionLabel(dirPath)}
-                                </span>
-                                <span className="ml-3 shrink-0 text-[0.7rem] text-muted-foreground">
-                                  Open
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      ) : (
-                        <div className="px-3 py-4 text-xs text-muted-foreground">
-                          No subfolders found in this directory.
-                        </div>
-                      )}
                     </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                    {dirsError ? (
+                      <div className="border-t border-destructive/10 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                        {dirsError}
+                      </div>
+                    ) : matchingDirs.length > 0 ? (
+                      <ScrollArea className="max-h-56">
+                        <div className="grid gap-1 p-2">
+                          {matchingDirs.map((dirPath) => (
+                            <button
+                              key={dirPath}
+                              type="button"
+                              onClick={() => void browseDirectory(dirPath)}
+                              className="flex items-center justify-between rounded-md border border-transparent px-2.5 py-2 text-left text-sm transition-colors hover:border-border hover:bg-background"
+                            >
+                              <span className="truncate font-medium text-foreground">
+                                {getDirectoryOptionLabel(dirPath)}
+                              </span>
+                              <span className="ml-3 shrink-0 text-[0.7rem] text-muted-foreground">
+                                Open
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    ) : (
+                      <div className="px-3 py-4 text-xs text-muted-foreground">
+                        No matching folders found in this directory.
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <DialogFooter>

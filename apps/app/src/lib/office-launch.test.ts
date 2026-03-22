@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   formatLaunchError,
+  getDirectoryBrowseQuery,
   getDirectoryBrowserPath,
+  getDirectorySuggestionQuery,
+  getMatchingDirectoryOptions,
   getDirectoryOptionLabel,
   getOfficePageViewportHeight,
   getParentDirectory,
@@ -62,6 +65,92 @@ test("directory browser options show readable folder labels", () => {
   assert.equal(getDirectoryOptionLabel("/Users/mac/Documents/work"), "work");
   assert.equal(getDirectoryOptionLabel("/Users/mac/Documents/work/"), "work");
   assert.equal(getDirectoryOptionLabel("/"), "/");
+});
+
+test("directory suggestions fetch the parent folder and keep the typed fragment as filter", () => {
+  assert.deepEqual(
+    getDirectorySuggestionQuery({
+      launchCwd: "/Users/mac/Doc",
+      currentDir: "/Users/mac/Desktop",
+      homedir: "/Users/mac",
+    }),
+    {
+      fetchPath: "/Users/mac",
+      filterText: "Doc",
+    },
+  );
+
+  assert.deepEqual(
+    getDirectorySuggestionQuery({
+      launchCwd: "/Users/mac/Documents/",
+      currentDir: "",
+      homedir: "/Users/mac",
+    }),
+    {
+      fetchPath: "/Users/mac/Documents",
+      filterText: "",
+    },
+  );
+});
+
+test("directory browse query opens the current folder children from the arrow toggle", () => {
+  assert.deepEqual(
+    getDirectoryBrowseQuery({
+      launchCwd: "/Users/mac/Documents",
+      currentDir: "",
+      homedir: "/Users/mac",
+    }),
+    {
+      fetchPath: "/Users/mac/Documents",
+      fallbackPath: "/Users/mac",
+      filterText: "",
+    },
+  );
+
+  assert.deepEqual(
+    getDirectoryBrowseQuery({
+      launchCwd: "/Users/mac/Doc",
+      currentDir: "",
+      homedir: "/Users/mac",
+    }),
+    {
+      fetchPath: "/Users/mac/Doc",
+      fallbackPath: "/Users/mac",
+      filterText: "",
+    },
+  );
+});
+
+test("directory matches prioritize prefix matches and hide unrelated folders", () => {
+  assert.deepEqual(
+    getMatchingDirectoryOptions(
+      [
+        "/Users/mac/Documents",
+        "/Users/mac/Downloads",
+        "/Users/mac/Desktop",
+        "/Users/mac/Pictures",
+      ],
+      "Do",
+    ),
+    [
+      "/Users/mac/Documents",
+      "/Users/mac/Downloads",
+    ],
+  );
+
+  assert.deepEqual(
+    getMatchingDirectoryOptions(
+      [
+        "/Users/mac/Documents",
+        "/Users/mac/Downloads",
+      ],
+      "",
+    ),
+    [
+      "/Users/mac/Documents",
+      "/Users/mac/Downloads",
+    ],
+  );
 });
 
 test("office page height accounts for the global safe-area padding once", () => {
