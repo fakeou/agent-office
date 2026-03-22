@@ -30,8 +30,12 @@ test("remote deploy script exists and covers the production deployment flow", ()
   assert.match(script, /python3\.11/);
   assert.match(script, /npm_config_python/);
   assert.match(script, /pnpm --filter @agent-office\/app build/);
+  assert.match(script, /apps\/app\/dist\/index\.html/);
   assert.match(script, /pnpm rebuild better-sqlite3 node-pty esbuild/);
   assert.match(script, /systemctl restart agentoffice-api\.service agentoffice-relay\.service/);
-  assert.match(script, /curl -fsS http:\/\/127\.0\.0\.1:9000\/api\/relay\/health/);
-  assert.match(script, /curl -fsS http:\/\/127\.0\.0\.1:9001\/api\/health/);
+  assert.match(script, /wait_for_http/);
+  assert.match(script, /wait_for_file/);
+  assert.match(script, /curl(?: --max-time 10)? -fsS http:\/\/127\.0\.0\.1:9000\/api\/relay\/health/);
+  assert.match(script, /curl(?: --max-time 10)? -fsS http:\/\/127\.0\.0\.1:9001\/api\/health/);
+  assert.match(script, /https:\/\/agentoffice\.top\/office/);
 });

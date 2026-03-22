@@ -18,6 +18,41 @@ set -euo pipefail
 
 DEPLOY_DIR="$1"
 
+wait_for_file() {
+  local path="$1"
+  local attempts="${2:-15}"
+  local sleep_seconds="${3:-1}"
+  local attempt
+
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    if [[ -f "$path" ]]; then
+      return 0
+    fi
+    sleep "$sleep_seconds"
+  done
+
+  echo "Timed out waiting for file: $path" >&2
+  return 1
+}
+
+wait_for_http() {
+  local url="$1"
+  local attempts="${2:-15}"
+  local sleep_seconds="${3:-2}"
+  local label="${4:-$1}"
+  local attempt
+
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    if curl --max-time 10 -fsS "$url" >/dev/null; then
+      return 0
+    fi
+    sleep "$sleep_seconds"
+  done
+
+  echo "Timed out waiting for ${label}: $url" >&2
+  return 1
+}
+
 cd "$DEPLOY_DIR"
 
 git fetch --tags origin main
@@ -35,8 +70,13 @@ export PYTHON="$npm_config_python"
 pnpm install --frozen-lockfile
 pnpm rebuild better-sqlite3 node-pty esbuild
 pnpm --filter @agent-office/app build
+wait_for_file "$DEPLOY_DIR/apps/app/dist/index.html" 20 1
 
 systemctl restart agentoffice-api.service agentoffice-relay.service
+wait_for_http "http://127.0.0.1:9000/api/relay/health" 20 1 "relay health"
+wait_for_http "http://127.0.0.1:9001/api/health" 20 1 "api health"
+wait_for_http "https://agentoffice.top/" 20 1 "frontend home"
+wait_for_http "https://agentoffice.top/office" 20 1 "frontend office"
 
 echo "--- remote head ---"
 git rev-parse HEAD
@@ -49,13 +89,15 @@ echo "--- listeners ---"
 ss -ltnp | grep -E '9000|9001'
 
 echo "--- health ---"
-curl -fsS http://127.0.0.1:9000/api/relay/health
+curl --max-time 10 -fsS http://127.0.0.1:9000/api/relay/health
 printf '\n---\n'
-curl -fsS http://127.0.0.1:9001/api/health
+curl --max-time 10 -fsS http://127.0.0.1:9001/api/health
 printf '\n---\n'
 
 echo "--- frontend ---"
-curl -fsS https://agentoffice.top/ | sed -n '1,20p'
+curl --max-time 10 -fsSI https://agentoffice.top/ | sed -n '1,20p'
+printf '\n---\n'
+curl --max-time 10 -fsSI https://agentoffice.top/office | sed -n '1,20p'
 
 echo "--- cli version ---"
 jq -r .version "$DEPLOY_DIR/packages/cli/package.json"
